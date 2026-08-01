@@ -429,5 +429,15 @@ fn patch_record(mut record: Record) -> Result<Record> {
         record.root_ntws = Some("ب.ي.ر.و".to_string());
     }
 
+    match record.analysis.as_str() {
+        "NOUN:PL" => {
+            record.analysis.pop();
+        }
+        "NOUN:SF" => {
+            record.analysis = "NOUN:FS".to_string();
+        }
+        _ => {}
+    }
+
     Ok(record)
 }

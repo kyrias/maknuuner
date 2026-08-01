@@ -28,10 +28,10 @@ pub(crate) mod noun {
             let feature = match s {
                 "D" => Self::Dual,
                 "FP" => Self::FemininePlural,
-                "FS" | "SF" => Self::FeminineSingular,
+                "FS" => Self::FeminineSingular,
                 "MP" => Self::MasculinePlural,
                 "MS" => Self::MasculineSingular,
-                "P" | "PL" => Self::Plural,
+                "P" => Self::Plural,
                 "PHRASE" => Self::Phrase,
                 "S" => Self::Singular,
                 _ => bail!("Unknown NounFeature {s:?}"),
