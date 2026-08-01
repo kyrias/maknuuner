@@ -2,10 +2,7 @@ use std::{collections::HashMap, ops::Deref, sync::Arc};
 
 use anyhow::{Context as _, Result};
 
-use crate::{
-    Str,
-    query::{Operator, Qualifier, Query},
-};
+use crate::{Str, query};
 
 pub(crate) mod pos;
 
@@ -156,47 +153,36 @@ impl TryFrom<RawRecord> for Record {
     }
 }
 
-trait QueryExt {
-    fn matches(&self, record: &Record) -> bool;
-}
-
-impl QueryExt for Query {
-    fn matches(&self, record: &Record) -> bool {
-        match self {
-            Query::Term { term } => {
-                term.matches(&*record.root)
-                    || term.matches(&record.root_1)
-                    || term.matches(&record.lemma)
-                    || term.matches(&record.lemma_search)
-                    || term.matches(&record.form)
-                    || term.matches(&record.lemma_bw)
-                    || term.matches(&record.form_bw)
-                    || term.matches(&record.caphipp)
-                    || term.matches(&record.analysis)
-                    || record.glosses.iter().any(|gloss| term.matches(gloss))
-                    || term.matches(&record.gloss_msa)
+impl Record {
+    fn matches(&self, query: &query::Leaf) -> bool {
+        match query {
+            query::Leaf::Term { term } => {
+                term.matches(&*self.root)
+                    || term.matches(&self.root_1)
+                    || term.matches(&self.lemma)
+                    || term.matches(&self.lemma_search)
+                    || term.matches(&self.form)
+                    || term.matches(&self.lemma_bw)
+                    || term.matches(&self.form_bw)
+                    || term.matches(&self.caphipp)
+                    || term.matches(&self.analysis)
+                    || self.glosses.iter().any(|gloss| term.matches(gloss))
+                    || term.matches(&self.gloss_msa)
             }
-            Query::Qualified { qualifier, term } => match qualifier {
-                Qualifier::Term => {
-                    term.matches(&record.lemma)
-                        || term.matches(&record.lemma_search)
-                        || term.matches(&record.lemma_bw)
-                        || term.matches(&record.gloss_msa)
-                        || term.matches(&record.caphipp)
+            query::Leaf::Qualified { qualifier, term } => match qualifier {
+                query::Qualifier::Term => {
+                    term.matches(&self.lemma)
+                        || term.matches(&self.lemma_search)
+                        || term.matches(&self.lemma_bw)
+                        || term.matches(&self.gloss_msa)
+                        || term.matches(&self.caphipp)
                 }
-                Qualifier::Analysis => term.matches(&record.analysis),
-                Qualifier::Gloss => {
-                    record.glosses.iter().any(|gloss| term.matches(gloss))
-                        || term.matches(&record.gloss_msa)
+                query::Qualifier::Analysis => term.matches(&self.analysis),
+                query::Qualifier::Gloss => {
+                    self.glosses.iter().any(|gloss| term.matches(gloss))
+                        || term.matches(&self.gloss_msa)
                 }
             },
-            Query::Operator { op, lhs, rhs } => {
-                let lhs = lhs.matches(record);
-                match op {
-                    Operator::And => lhs && rhs.matches(record),
-                    Operator::Or => lhs || rhs.matches(record),
-                }
-            }
         }
     }
 }
@@ -208,21 +194,18 @@ pub(crate) struct Lemma {
 }
 
 impl Lemma {
-    fn matches(&self, query: &Query) -> bool {
+    fn matches(&self, query: &query::Query) -> bool {
         match query {
-            Query::Term { .. } => {
-                self.entries.iter().any(|entry| query.matches(entry))
-                    || self.phrases.iter().any(|entry| query.matches(entry))
-            }
-            Query::Qualified { .. } => {
-                self.entries.iter().any(|entry| query.matches(entry))
-                    || self.phrases.iter().any(|entry| query.matches(entry))
-            }
-            Query::Operator { op, lhs, rhs } => {
+            query::Query::Leaf(leaf) => self
+                .entries
+                .iter()
+                .chain(self.phrases.iter())
+                .any(|entry| entry.matches(leaf)),
+            query::Query::Operator { op, lhs, rhs } => {
                 let lhs = self.matches(lhs);
                 match op {
-                    Operator::And => lhs && self.matches(rhs),
-                    Operator::Or => lhs || self.matches(rhs),
+                    query::Operator::And => lhs && self.matches(rhs),
+                    query::Operator::Or => lhs || self.matches(rhs),
                 }
             }
         }
@@ -294,7 +277,7 @@ impl Lexicon {
         })
     }
 
-    pub(crate) fn search(&self, query: &Query) -> impl Iterator<Item = &Lemma> {
+    pub(crate) fn search(&self, query: &query::Query) -> impl Iterator<Item = &Lemma> {
         self.lemmas.iter().filter(|lemma| lemma.matches(query))
     }
 }

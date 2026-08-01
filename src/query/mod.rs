@@ -1,6 +1,9 @@
 use anyhow::{Result, bail, ensure};
 
-use crate::{NormalizedString, Str, query::lexer::{Lexer, Token}};
+use crate::{
+    NormalizedString, Str,
+    query::lexer::{Lexer, Token},
+};
 
 mod lexer;
 
@@ -68,14 +71,14 @@ pub(crate) enum Operator {
 }
 
 #[derive(Debug)]
+pub(crate) enum Leaf {
+    Term { term: Term },
+    Qualified { qualifier: Qualifier, term: Term },
+}
+
+#[derive(Debug)]
 pub(crate) enum Query {
-    Term {
-        term: Term,
-    },
-    Qualified {
-        qualifier: Qualifier,
-        term: Term,
-    },
+    Leaf(Leaf),
     Operator {
         op: Operator,
         lhs: Box<Query>,
@@ -86,13 +89,13 @@ pub(crate) enum Query {
 impl Query {
     pub(crate) fn parse(query_string: &str) -> Result<Query> {
         if query_string.trim().is_empty() {
-            return Ok(Query::Term {
+            return Ok(Query::Leaf(Leaf::Term {
                 term: Term {
                     term: "".into(),
                     anchor_start: false,
                     anchor_end: false,
                 },
-            });
+            }));
         }
 
         let mut lexer = Lexer::new(query_string);
@@ -112,13 +115,13 @@ fn parse_bp(lexer: &mut Lexer<'_>, min_bp: u8) -> Result<Query> {
                     term = suffix;
                 }
                 out.push_str(term);
-                Query::Term {
+                Query::Leaf(Leaf::Term {
                     term: Term::from(out.as_str()),
-                }
+                })
             } else {
-                Query::Term {
+                Query::Leaf(Leaf::Term {
                     term: Term::from(term),
-                }
+                })
             }
         }
 
@@ -134,16 +137,16 @@ fn parse_bp(lexer: &mut Lexer<'_>, min_bp: u8) -> Result<Query> {
                 }
                 token => bail!("Expected Literal, found {token:?}"),
             };
-            Query::Qualified { qualifier, term }
+            Query::Leaf(Leaf::Qualified { qualifier, term })
         }
 
         Token::UnquotedTerm(term) => {
             if term.contains('\\') {
                 bail!("Unquoted term cannot contain escape sequences: {term:?}");
             }
-            Query::Term {
+            Query::Leaf(Leaf::Term {
                 term: Term::from(term),
-            }
+            })
         }
 
         Token::LeftParen => {
