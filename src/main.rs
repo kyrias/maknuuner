@@ -1,4 +1,4 @@
-use std::{fmt::Debug, ops::Deref};
+use std::{fmt::Debug, hash::Hash, ops::Deref};
 
 use anyhow::{Context, Result};
 use caseless::Caseless;
@@ -51,6 +51,12 @@ impl From<String> for Str {
 impl PartialEq for Str {
     fn eq(&self, other: &Self) -> bool {
         self.normalized == other.normalized
+    }
+}
+
+impl Hash for Str {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.normalized.hash(state);
     }
 }
 

@@ -37,10 +37,20 @@ pub(crate) struct Record {
     annotator: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Root {
     Root(Str),
     NonTemplaticWordStem(Str),
+}
+
+impl Root {
+    fn new(root: String, root_ntws: String) -> Self {
+        if root == "NTWS" {
+            Self::NonTemplaticWordStem(root_ntws.into())
+        } else {
+            Self::Root(root.into())
+        }
+    }
 }
 
 impl Deref for Root {
@@ -317,11 +327,7 @@ impl TryFrom<Record> for Lemma {
         let lemma_bw = record.lemma_bw.take().unwrap();
 
         let mut lemma = Lemma {
-            root: if root == "NTWS" {
-                Root::NonTemplaticWordStem(root_ntws.into())
-            } else {
-                Root::Root(root.into())
-            },
+            root: Root::new(root, root_ntws),
             root_1: root_1.into(),
             lemma: lemma.into(),
             lemma_search: lemma_search.into(),
@@ -357,14 +363,16 @@ impl Lexicon {
         // Group the raw records by lemma and part of speech.
         //
         // Also separate definitions from phrases.
-        let mut lemmas = HashMap::<(String, String, String, String), Lemma>::new();
+        let mut lemmas = HashMap::<(Root, String, String), Lemma>::new();
         for record in reader.deserialize::<Record>() {
             let record = patch_record(record.context("Failed to deserialize lexicon record")?)
                 .context("Failed to patch record")?;
 
             let lemma_key = (
-                record.root.clone().unwrap(),
-                record.root_ntws.clone().unwrap_or_default(),
+                Root::new(
+                    record.root.clone().unwrap(),
+                    record.root_ntws.clone().unwrap_or_default(),
+                ),
                 record.lemma.clone().unwrap(),
                 record.analysis.split(':').next().unwrap().to_string(),
             );
