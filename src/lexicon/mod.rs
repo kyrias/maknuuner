@@ -57,12 +57,13 @@ impl Deref for Root {
     type Target = Str;
     fn deref(&self) -> &Self::Target {
         match self {
-            Self::Root(root) => &root,
-            Self::NonTemplaticWordStem(ntws) => &ntws,
+            Self::Root(root) => root,
+            Self::NonTemplaticWordStem(ntws) => ntws,
         }
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub(crate) struct Custom {
     /// Parsed form of the analysis field.
@@ -76,6 +77,7 @@ pub(crate) struct Custom {
 
 // TODO: Split phrases into their own struct with only the relevant fields?  This would allow for
 //       removing the phrase options from all the PoS feature types.
+#[allow(unused)]
 #[derive(Debug)]
 pub(crate) struct Entry {
     pub id: u32,
@@ -235,7 +237,7 @@ impl Lemma {
     fn matches_leaf(&self, leaf: &query::Leaf) -> bool {
         match leaf {
             query::Leaf::Term { term } => {
-                term.matches(&*self.root)
+                term.matches(&self.root)
                     || term.matches(&self.root_1)
                     || term.matches(&self.lemma)
                     || term.matches(&self.lemma_search)
@@ -353,7 +355,7 @@ pub(crate) struct Lexicon {
 
 impl Lexicon {
     pub(super) fn new() -> Result<Self> {
-        const LEXICON: &'static str = include_str!("../../maknuune-v1.0.1.tsv");
+        const LEXICON: &str = include_str!("../../maknuune-v1.0.1.tsv");
 
         let mut reader = csv::ReaderBuilder::new()
             .has_headers(true)

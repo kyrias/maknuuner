@@ -29,11 +29,11 @@ impl From<&str> for Term {
     fn from(value: &str) -> Self {
         let (value, anchor_start) = match value.strip_prefix('^') {
             Some(value) => (value, true),
-            None => (value.as_ref(), false),
+            None => (value, false),
         };
         let (value, anchor_end) = match value.strip_suffix('$') {
             Some(value) => (value, true),
-            None => (value.as_ref(), false),
+            None => (value, false),
         };
 
         Term {
