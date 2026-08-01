@@ -1,0 +1,13 @@
+[package]
+name = "maknuuner"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.104", features = ["backtrace"] }
+caseless = "0.2.2"
+csv = "1.4.0"
+serde = "1.0.229"
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }
+topcoat = "0.5.0"
+unicode-normalization = "0.1.25"
