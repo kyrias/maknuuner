@@ -104,13 +104,14 @@ fn render_pos(pos: PartOfSpeech) -> (&'static str, Option<&'static str>) {
 async fn render_entry(entry: &Entry, render_glosses: bool) -> Result {
     view! {
         <li class="term">
-            <span lang="ar">
-                (&entry.form.raw)
-            </span>
+            <span lang="ar">(&entry.form.raw)</span>
             if let Some(pos) = &entry.custom.pos {
                 <span>
                     let (pos, feat) = render_pos(*pos);
-                    " " (pos) " " (feat)
+                    " "
+                    (pos)
+                    " "
+                    (feat)
                 </span>
             }
 
@@ -129,9 +130,7 @@ async fn render_entry(entry: &Entry, render_glosses: bool) -> Result {
 async fn render_phrase(phrase: &Entry) -> Result {
     view! {
         <li class="phrase">
-            <span lang="ar">
-                (&phrase.form.raw)
-            </span>
+            <span lang="ar">(&phrase.form.raw)</span>
             <ol>
                 for gloss in &phrase.glosses {
                     <li>(&gloss.raw)</li>
@@ -156,7 +155,9 @@ async fn single_result(lemma: &Lemma, raw: bool) -> Result {
     view! {
         <li class="result">
             <span lang="ar">
-                "(" (&*lemma.root.raw) ") "
+                "("
+                (&*lemma.root.raw)
+                ") "
                 (&lemma.lemma.raw)
             </span>
 
@@ -186,9 +187,7 @@ async fn single_result(lemma: &Lemma, raw: bool) -> Result {
             }
 
             if raw {
-                <div>
-                    <pre>(format!("{lemma:#?}"))</pre>
-                </div>
+                <div><pre>(format!("{lemma:#?}"))</pre></div>
             }
         </li>
     }
@@ -212,7 +211,9 @@ async fn search_results(cx: &Cx, query: String, raw: bool) -> Result {
         </ol>
         if raw {
             <div>
-                "The following query took " (elapsed.as_secs_f64()) "s to execute:"
+                "The following query took "
+                (elapsed.as_secs_f64())
+                "s to execute:"
                 <pre>(format!("{query:#?}"))</pre>
             </div>
         }
@@ -243,9 +244,11 @@ async fn search(cx: &Cx) -> Result {
             @input=$(|e: Event| {
                 let value = e.target.value;
                 query.set(value);
-                raw!(r#"window.history.replaceState({}, '',
+                raw!(
+                    r#"window.history.replaceState({}, '',
                     '?' + new URLSearchParams({ "query": ${value}, "raw": ${raw} }
-                ).toString())"#);
+                ).toString())"#
+                );
             })
         >
 
