@@ -55,7 +55,11 @@ impl<'a> Lexer<'a> {
         }
 
         // Unquoted terms cannot contain right parens, otherwise grouping doesn't work.
-        let unquoted = self.query.split(|c| [' ', ')'].contains(&c)).next().unwrap();
+        let unquoted = self
+            .query
+            .split(|c| [' ', ')'].contains(&c))
+            .next()
+            .unwrap();
         self.query = &self.query[unquoted.len()..];
         Ok(Token::UnquotedTerm(unquoted))
     }

@@ -34,7 +34,7 @@ impl From<&str> for NormalizedString {
 
 /// String type containing the original string for display purposes in addition to a case-folded
 /// and NKFC normalized string for searching.
-#[derive(Clone)]
+#[derive(Clone, Eq)]
 pub(crate) struct Str {
     pub raw: String,
     pub normalized: NormalizedString,

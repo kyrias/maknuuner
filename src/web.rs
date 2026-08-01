@@ -11,7 +11,8 @@ use topcoat::{
 };
 
 use crate::{
-    lexicon::{Lemma, Lexicon, Record, pos::PartOfSpeech}, query::Query,
+    lexicon::{Entry, Lemma, Lexicon, pos::PartOfSpeech},
+    query::Query,
 };
 
 pub(super) async fn start(lexicon: Lexicon) -> anyhow::Result<()> {
@@ -52,7 +53,10 @@ async fn home() -> Result {
 }
 
 fn render_pos(pos: PartOfSpeech) -> (&'static str, Option<&'static str>) {
-    use crate::lexicon::pos::{noun::{Noun, NounFeature}, verb::{Verb,VerbFeature}};
+    use crate::lexicon::pos::{
+        noun::{Noun, NounFeature},
+        verb::{Verb, VerbFeature},
+    };
 
     fn fmt_noun_feature(nf: NounFeature) -> &'static str {
         match nf {
@@ -88,18 +92,16 @@ fn render_pos(pos: PartOfSpeech) -> (&'static str, Option<&'static str>) {
             };
             (kind, nf.map(fmt_noun_feature))
         }
-        PartOfSpeech::Verb(verb) => {
-             match verb {
-                Verb::Plain(vf) => ("Verb", Some(fmt_verb_feature(vf))),
-                Verb::Nominal(_) => ("Verb (nominal)", None),
-                Verb::Pseudo(_) => ("Verb (pseudo)", None),
-            }
-        }
+        PartOfSpeech::Verb(verb) => match verb {
+            Verb::Plain(vf) => ("Verb", Some(fmt_verb_feature(vf))),
+            Verb::Nominal(_) => ("Verb (nominal)", None),
+            Verb::Pseudo(_) => ("Verb (pseudo)", None),
+        },
     }
 }
 
 #[component]
-async fn render_entry(entry: &Record, render_glosses: bool) -> Result {
+async fn render_entry(entry: &Entry, render_glosses: bool) -> Result {
     view! {
         <li class="term">
             <span lang="ar">
@@ -124,7 +126,7 @@ async fn render_entry(entry: &Record, render_glosses: bool) -> Result {
 }
 
 #[component]
-async fn render_phrase(phrase: &Record) -> Result {
+async fn render_phrase(phrase: &Entry) -> Result {
     view! {
         <li class="phrase">
             <span lang="ar">
@@ -141,20 +143,21 @@ async fn render_phrase(phrase: &Record) -> Result {
 
 #[component]
 async fn single_result(lemma: &Lemma, raw: bool) -> Result {
-    let record = lemma
+    // State used to only render the list of glosses if they differ from the previously rendered
+    // definition.
+    let mut first_entry = true;
+    let mut glosses = &lemma
         .entries
         .first()
         .or_else(|| lemma.phrases.first())
-        .unwrap();
-
-    let mut first_entry = true;
-    let mut glosses = &record.glosses;
+        .unwrap()
+        .glosses;
 
     view! {
         <li class="result">
             <span lang="ar">
-                "(" (&*record.root.raw) ") "
-                (&record.lemma.raw)
+                "(" (&*lemma.root.raw) ") "
+                (&lemma.lemma.raw)
             </span>
 
             if !lemma.entries.is_empty() {
