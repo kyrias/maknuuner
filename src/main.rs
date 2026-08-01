@@ -32,8 +32,8 @@ impl From<&str> for NormalizedString {
     }
 }
 
-/// Struct containing both the original raw string and a case-folded and NKFC normalized string for
-/// searching.
+/// String type containing the original string for display purposes in addition to a case-folded
+/// and NKFC normalized string for searching.
 #[derive(Clone)]
 pub(crate) struct Str {
     pub raw: String,

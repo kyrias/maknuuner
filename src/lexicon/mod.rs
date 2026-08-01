@@ -225,6 +225,9 @@ impl Lexicon {
             .delimiter(b'\t')
             .from_reader(LEXICON.as_bytes());
 
+        // Group the raw records by lemma and part of speech.
+        //
+        // Also separate definitions from phrases.
         let mut lemmas = HashMap::<(String, String), Lemma>::new();
         for record in reader.deserialize::<RawRecord>() {
             let record = record.context("Failed to deserialize lexicon record")?;
@@ -244,7 +247,7 @@ impl Lexicon {
             }
         }
 
-        // Sort enries
+        // Sort entries by part of speech and ID.
         for lemma in lemmas.values_mut() {
             lemma
                 .entries
@@ -254,22 +257,19 @@ impl Lexicon {
                 .sort_by_key(|entry| (entry.custom.pos, entry.id));
         }
 
-        // Sort lemmas by lowest ID among entries and phrases.
+        // Sort lemmas by lowest ID among entries and phrases to have a consistent order.
+        //
+        // This is only necessary since we don't perform the ranking step of a proper search
+        // engine.
         let mut lemmas = lemmas.into_values().collect::<Vec<_>>();
         lemmas.sort_by_key(|lemma| {
-            let min_entry_id = lemma
+            lemma
                 .entries
                 .iter()
+                .chain(lemma.phrases.iter())
                 .map(|entry| entry.id)
                 .min()
-                .unwrap_or(u32::MAX);
-            let min_phrase_id = lemma
-                .phrases
-                .iter()
-                .map(|entry| entry.id)
-                .min()
-                .unwrap_or(u32::MAX);
-            min_entry_id.min(min_phrase_id)
+                .expect("All lemmas have at least one entry or phrase")
         });
 
         Ok(Self {
