@@ -200,7 +200,6 @@ async fn search_results(cx: &Cx, query: String, raw: bool) -> Result {
     let instant = Instant::now();
     let results = lexicon.search(&query).take(50);
     let elapsed = instant.elapsed();
-    println!("Query {query:?} took {}s", elapsed.as_secs_f64());
 
     view! {
         <ol>
@@ -208,6 +207,12 @@ async fn search_results(cx: &Cx, query: String, raw: bool) -> Result {
                 single_result(lemma: result, raw: raw)
             }
         </ol>
+        if raw {
+            <div>
+                "The following query took " (elapsed.as_secs_f64()) "s to execute:"
+                <pre>(format!("{query:#?}"))</pre>
+            </div>
+        }
     }
 }
 
