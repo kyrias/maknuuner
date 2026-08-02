@@ -252,7 +252,7 @@ async fn search(cx: &Cx) -> Result {
     let query = params
         .query
         .clone()
-        .unwrap_or_else(|| r#"gloss:^money analysis:"^NOUN:P$""#.to_string());
+        .unwrap_or_else(|| r#"gloss:^money analysis:"^noun:p$""#.to_string());
     let raw = params.raw.unwrap_or(false);
 
     view! {
