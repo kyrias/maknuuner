@@ -1,8 +1,9 @@
 use anyhow::{Result, bail, ensure};
 
 use crate::{
+    lexicon::Root,
     query::lexer::{Lexer, Token},
-    string::{NormalizedString, Str},
+    string::{CaseFoldedString, NormalizedString, SearchableString},
     tf_idf,
 };
 
@@ -13,17 +14,6 @@ pub(crate) struct Term {
     term: NormalizedString,
     anchor_start: bool,
     anchor_end: bool,
-}
-
-impl Term {
-    pub(crate) fn matches(&self, value: &Str) -> bool {
-        match (self.anchor_start, self.anchor_end) {
-            (false, false) => value.normalized.contains(self.term.as_str()),
-            (true, false) => value.normalized.starts_with(self.term.as_str()),
-            (true, true) => value.normalized == self.term,
-            (false, true) => value.normalized.ends_with(self.term.as_str()),
-        }
-    }
 }
 
 impl From<&str> for Term {
@@ -42,6 +32,41 @@ impl From<&str> for Term {
             anchor_start,
             anchor_end,
         }
+    }
+}
+
+pub(crate) trait MatchTerm<T> {
+    fn matches(&self, value: T) -> bool;
+}
+
+impl MatchTerm<&NormalizedString> for Term {
+    fn matches(&self, value: &NormalizedString) -> bool {
+        match (self.anchor_start, self.anchor_end) {
+            (false, false) => value.contains(self.term.as_str()),
+            (true, false) => value.starts_with(self.term.as_str()),
+            (true, true) => value.as_str() == self.term.as_str(),
+            (false, true) => value.ends_with(self.term.as_str()),
+        }
+    }
+}
+
+impl MatchTerm<&CaseFoldedString> for Term {
+    fn matches(&self, value: &CaseFoldedString) -> bool {
+        let value: &NormalizedString = value;
+        self.matches(value)
+    }
+}
+
+impl MatchTerm<&SearchableString> for Term {
+    fn matches(&self, value: &SearchableString) -> bool {
+        self.matches(&value.folded)
+    }
+}
+
+impl MatchTerm<&Root> for Term {
+    fn matches(&self, value: &Root) -> bool {
+        let value: &NormalizedString = value;
+        self.matches(value)
     }
 }
 

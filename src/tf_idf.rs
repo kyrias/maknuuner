@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::{
     lexicon::Lemma,
-    string::{NormalizedString, Str},
+    string::{NormalizedString, SearchableString},
 };
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
@@ -22,9 +22,9 @@ impl ToTerms for &NormalizedString {
     }
 }
 
-impl ToTerms for &Str {
+impl ToTerms for &SearchableString {
     fn to_terms(self) -> impl Iterator<Item = Term> {
-        self.normalized.to_terms()
+        self.folded.to_terms()
     }
 }
 

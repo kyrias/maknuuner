@@ -102,7 +102,7 @@ fn render_pos(pos: PartOfSpeech) -> (&'static str, Option<&'static str>) {
 async fn render_definition(definition: &Definition, render_glosses: bool) -> Result {
     view! {
         <li id=(("def-", definition.id)) class="definition">
-            <span lang="ar">(&definition.form.raw)</span>
+            <span lang="ar">(&definition.form)</span>
             if let Some(pos) = &definition.custom.pos {
                 <span>
                     let (pos, feat) = render_pos(*pos);
@@ -116,7 +116,7 @@ async fn render_definition(definition: &Definition, render_glosses: bool) -> Res
             if render_glosses {
                 <ol>
                     for gloss in &definition.glosses {
-                        <li>(&gloss.raw)</li>
+                        <li>(gloss)</li>
                     }
                 </ol>
             }
@@ -128,10 +128,10 @@ async fn render_definition(definition: &Definition, render_glosses: bool) -> Res
 async fn render_phrase(phrase: &Phrase) -> Result {
     view! {
         <li id=(("ph-", phrase.id)) class="phrase">
-            <span lang="ar">(&phrase.form.raw)</span>
+            <span lang="ar">(&phrase.form)</span>
             <ol>
                 for gloss in &phrase.glosses {
-                    <li>(&gloss.raw)</li>
+                    <li>(gloss)</li>
                 }
             </ol>
         </li>
@@ -158,9 +158,9 @@ async fn single_result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
         >
             <span lang="ar">
                 "("
-                (&*lemma.root.raw)
+                (&*lemma.root)
                 ") "
-                (&lemma.lemma.raw)
+                (&lemma.lemma)
             </span>
 
             if !lemma.definitions.is_empty() {

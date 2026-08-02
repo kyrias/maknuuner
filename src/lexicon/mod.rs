@@ -8,8 +8,8 @@ use anyhow::{Context as _, Result, bail, ensure};
 
 use crate::{
     lexicon::pos::PartOfSpeech,
-    query,
-    string::Str,
+    query::{self, MatchTerm as _},
+    string::{NormalizedString, SearchableString},
     tf_idf::{DocumentTermFrequencies, InverseDocumentFrequencies, ToTerms},
 };
 
@@ -40,24 +40,25 @@ pub(crate) struct Record {
     notes: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Root {
-    Root(Str),
-    NonTemplaticWordStem(Str),
+    Root(NormalizedString),
+    NonTemplaticWordStem(NormalizedString),
 }
 
 impl Root {
     fn new(root: String, root_ntws: String) -> Self {
         if root == "NTWS" {
-            Self::NonTemplaticWordStem(root_ntws.into())
+            Self::NonTemplaticWordStem(root_ntws.as_str().into())
         } else {
-            Self::Root(root.into())
+            Self::Root(root.as_str().into())
         }
     }
 }
 
 impl Deref for Root {
-    type Target = Str;
+    type Target = NormalizedString;
+
     fn deref(&self) -> &Self::Target {
         match self {
             Self::Root(root) => root,
@@ -85,16 +86,16 @@ pub(crate) struct Custom {
 pub(crate) struct Definition {
     pub id: u32,
 
-    pub form: Str,
-    pub form_bw: Str,
-    pub caphipp: Str,
-    pub analysis: Str,
+    pub form: NormalizedString,
+    pub form_bw: NormalizedString,
+    pub caphipp: NormalizedString,
+    pub analysis: SearchableString,
 
-    pub glosses: Vec<Str>,
-    pub gloss_msa: Str,
+    pub glosses: Vec<SearchableString>,
+    pub gloss_msa: NormalizedString,
 
-    pub example_usage: Str,
-    pub notes: Str,
+    pub example_usage: NormalizedString,
+    pub notes: SearchableString,
 
     pub custom: Custom,
 }
@@ -123,11 +124,11 @@ impl Definition {
 
     /// Parse a gloss string into a vector of glosses, removing the auto-generated entry suffix if
     /// present.
-    fn parse_glosses(gloss: &str) -> (Vec<Str>, bool) {
+    fn parse_glosses(gloss: &str) -> (Vec<SearchableString>, bool) {
         let stripped = gloss.strip_suffix("[auto]");
         let auto = stripped.is_some();
 
-        let glosses: Vec<Str> = stripped
+        let glosses: Vec<SearchableString> = stripped
             .unwrap_or(gloss)
             .replace("_", " ")
             .split(';')
@@ -185,14 +186,14 @@ impl TryFrom<Record> for Definition {
 
         Ok(Self {
             id,
-            form: form.into(),
-            form_bw: form_bw.into(),
-            caphipp: caphipp.into(),
-            analysis: analysis.into(),
+            form: form.as_str().into(),
+            form_bw: form_bw.as_str().into(),
+            caphipp: caphipp.as_str().into(),
+            analysis: analysis.as_str().into(),
             glosses,
-            gloss_msa: gloss_msa.into(),
-            example_usage: example_usage.into(),
-            notes: notes.into(),
+            gloss_msa: gloss_msa.as_str().into(),
+            example_usage: example_usage.as_str().into(),
+            notes: notes.as_str().into(),
 
             custom: Custom { pos, auto },
         })
@@ -204,15 +205,15 @@ impl TryFrom<Record> for Definition {
 pub(crate) struct Phrase {
     pub id: u32,
 
-    pub form: Str,
-    pub form_bw: Str,
-    pub caphipp: Str,
+    pub form: NormalizedString,
+    pub form_bw: NormalizedString,
+    pub caphipp: NormalizedString,
 
-    pub glosses: Vec<Str>,
-    pub gloss_msa: Str,
+    pub glosses: Vec<SearchableString>,
+    pub gloss_msa: NormalizedString,
 
-    pub example_usage: String,
-    pub notes: Str,
+    pub example_usage: NormalizedString,
+    pub notes: SearchableString,
 }
 
 impl Phrase {
@@ -268,13 +269,13 @@ impl TryFrom<Record> for Phrase {
 
         Ok(Self {
             id,
-            form: form.into(),
-            form_bw: form_bw.into(),
-            caphipp: caphipp.into(),
+            form: form.as_str().into(),
+            form_bw: form_bw.as_str().into(),
+            caphipp: caphipp.as_str().into(),
             glosses,
-            gloss_msa: gloss_msa.into(),
-            example_usage,
-            notes: notes.into(),
+            gloss_msa: gloss_msa.as_str().into(),
+            example_usage: example_usage.as_str().into(),
+            notes: notes.as_str().into(),
         })
     }
 }
@@ -282,11 +283,11 @@ impl TryFrom<Record> for Phrase {
 #[derive(Debug)]
 pub(crate) struct Lemma {
     pub root: Root,
-    pub root_1: Str,
+    pub root_1: NormalizedString,
 
-    pub lemma: Str,
-    pub lemma_search: Str,
-    pub lemma_bw: Str,
+    pub lemma: NormalizedString,
+    pub lemma_search: NormalizedString,
+    pub lemma_bw: NormalizedString,
 
     pub definitions: Vec<Definition>,
     pub phrases: Vec<Phrase>,
@@ -385,10 +386,10 @@ impl TryFrom<Record> for Lemma {
 
         let mut lemma = Lemma {
             root: Root::new(root, root_ntws),
-            root_1: root_1.into(),
-            lemma: lemma.into(),
-            lemma_search: lemma_search.into(),
-            lemma_bw: lemma_bw.into(),
+            root_1: root_1.as_str().into(),
+            lemma: lemma.as_str().into(),
+            lemma_search: lemma_search.as_str().into(),
+            lemma_bw: lemma_bw.as_str().into(),
 
             definitions: Default::default(),
             phrases: Default::default(),
@@ -441,7 +442,7 @@ impl Lexicon {
             );
 
             let lemma = Lemma::try_from(record).context("Failed to convert record to lemma")?;
-            let lemma_bw = lemma.lemma_bw.raw.clone();
+            let lemma_bw = lemma.lemma_bw.clone();
 
             match lemmas.entry(lemma_key) {
                 HMEntry::Occupied(occupied) => {
