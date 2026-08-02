@@ -100,33 +100,36 @@ impl<T: AsRef<str>> From<T> for CaseFoldedInternedString {
 #[derive(Clone, Eq)]
 pub(crate) struct SearchableInternedString {
     pub display: NormalizedInternedString,
-    pub folded: CaseFoldedInternedString,
+    pub searchable: CaseFoldedInternedString,
 }
 
 impl<T: AsRef<str>> From<T> for SearchableInternedString {
     fn from(value: T) -> Self {
         Self {
             display: value.as_ref().into(),
-            folded: value.as_ref().into(),
+            searchable: value.as_ref().into(),
         }
     }
 }
 
 impl PartialEq for SearchableInternedString {
     fn eq(&self, other: &Self) -> bool {
-        self.folded == other.folded
+        self.searchable == other.searchable
     }
 }
 
 impl Hash for SearchableInternedString {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.folded.hash(state);
+        self.searchable.hash(state);
     }
 }
 
 impl Debug for SearchableInternedString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.display.as_str())
+        f.debug_struct("SearchableInternedString")
+            .field("display", &self.display.as_str())
+            .field("searchable", &self.searchable.as_str())
+            .finish()
     }
 }
 

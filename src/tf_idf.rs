@@ -31,7 +31,7 @@ impl ToTerms for NormalizedInternedString {
 
 impl ToTerms for SearchableInternedString {
     fn to_terms(&self) -> impl Iterator<Item = Term> {
-        self.folded.as_str().to_terms()
+        self.searchable.as_str().to_terms()
     }
 }
 

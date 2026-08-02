@@ -72,7 +72,7 @@ impl MatchTerm<NormalizedInternedString> for Term {
 
 impl MatchTerm<SearchableInternedString> for Term {
     fn matches(&self, value: &SearchableInternedString) -> bool {
-        self.matches(value.folded.as_str())
+        self.matches(value.searchable.as_str())
     }
 }
 
