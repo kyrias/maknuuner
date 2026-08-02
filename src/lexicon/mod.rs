@@ -338,8 +338,8 @@ impl Lemma {
         ensure!(self.lemma_search == lemma.lemma_search);
         ensure!(self.lemma_bw == lemma.lemma_bw);
 
-        self.definitions.extend(lemma.definitions.into_iter());
-        self.phrases.extend(lemma.phrases.into_iter());
+        self.definitions.extend(lemma.definitions);
+        self.phrases.extend(lemma.phrases);
 
         Ok(())
     }
