@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, bail, ensure};
+use compact_str::{CompactString, ToCompactString};
 
 use crate::{
     lexicon::pos::PartOfSpeech,
@@ -22,22 +23,22 @@ pub(crate) struct Record {
 
     // These are `Option` so that `Lemma::merge` can take them and still call
     // `Entry::from(Record)`.
-    root: Option<String>,
-    root_ntws: Option<String>,
-    root_1: Option<String>,
-    lemma: Option<String>,
-    lemma_search: Option<String>,
-    lemma_bw: Option<String>,
+    root: Option<CompactString>,
+    root_ntws: Option<CompactString>,
+    root_1: Option<CompactString>,
+    lemma: Option<CompactString>,
+    lemma_search: Option<CompactString>,
+    lemma_bw: Option<CompactString>,
 
-    form: String,
-    form_bw: String,
+    form: CompactString,
+    form_bw: CompactString,
     #[serde(rename = "CAPHI++")]
-    caphipp: String,
-    analysis: String,
-    gloss: String,
-    gloss_msa: String,
-    example_usage: String,
-    notes: String,
+    caphipp: CompactString,
+    analysis: CompactString,
+    gloss: CompactString,
+    gloss_msa: CompactString,
+    example_usage: CompactString,
+    notes: CompactString,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -47,7 +48,7 @@ pub(crate) enum Root {
 }
 
 impl Root {
-    fn new(root: String, root_ntws: String) -> Self {
+    fn new(root: CompactString, root_ntws: CompactString) -> Self {
         if root == "NTWS" {
             Self::NonTemplaticWordStem(root_ntws.as_str().into())
         } else {
@@ -132,7 +133,7 @@ impl Definition {
             .unwrap_or(gloss)
             .replace("_", " ")
             .split(';')
-            .map(|g| g.trim().to_string().into())
+            .map(|g| g.trim().into())
             .collect();
 
         (glosses, auto)
@@ -510,7 +511,7 @@ fn patch_record(mut record: Record) -> Result<Option<Record>> {
     match record.id {
         2737 => {
             ensure!(record.root_ntws.unwrap() == "ب.ي.ر");
-            record.root_ntws = Some("ب.ي.ر.و".to_string());
+            record.root_ntws = Some("ب.ي.ر.و".to_compact_string());
         }
 
         // Duplicates of 29603, 29605, 29612 but with different orders of the fatah and shadda in the
@@ -527,7 +528,7 @@ fn patch_record(mut record: Record) -> Result<Option<Record>> {
             record.analysis.pop();
         }
         "NOUN:SF" => {
-            record.analysis = "NOUN:FS".to_string();
+            record.analysis = "NOUN:FS".to_compact_string();
         }
         _ => {}
     }

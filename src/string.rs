@@ -5,21 +5,22 @@ use std::{
 };
 
 use caseless::Caseless;
+use compact_str::CompactString;
 use unicode_normalization::UnicodeNormalization;
 
 /// NKFC normalized string.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct NormalizedString(String);
+pub(crate) struct NormalizedString(CompactString);
 
 impl From<&str> for NormalizedString {
     fn from(raw: &str) -> Self {
-        let normalized = raw.chars().nfkc().collect::<String>();
+        let normalized = raw.chars().nfkc().collect::<CompactString>();
         Self(normalized)
     }
 }
 
 impl Deref for NormalizedString {
-    type Target = String;
+    type Target = CompactString;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -53,7 +54,7 @@ impl From<&str> for CaseFoldedString {
             .nfkc()
             .default_case_fold()
             .nfkc()
-            .collect::<String>();
+            .collect::<CompactString>();
         Self(NormalizedString(normalized))
     }
 }
