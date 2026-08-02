@@ -843,6 +843,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "interner"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8c60687056b35a996f2213287048a7092d801b61df5fee3bd5bd9bf6f17a2d0"
+
+[[package]]
 name = "inventory"
 version = "0.3.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -920,6 +926,7 @@ dependencies = [
  "caseless",
  "compact_str",
  "csv",
+ "interner",
  "itertools",
  "serde",
  "tokio",

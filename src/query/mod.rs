@@ -3,17 +3,22 @@ use anyhow::{Result, bail, ensure};
 use crate::{
     lexicon::Root,
     query::lexer::{Lexer, Token},
-    string::{CaseFoldedString, NormalizedString, SearchableString},
-    tf_idf,
+    string::{NormalizedCompactString, NormalizedInternedString, SearchableInternedString},
 };
 
 mod lexer;
 
 #[derive(Debug)]
 pub(crate) struct Term {
-    term: NormalizedString,
+    term: NormalizedCompactString,
     anchor_start: bool,
     anchor_end: bool,
+}
+
+impl Term {
+    pub(crate) fn term(&self) -> &str {
+        self.term.as_str()
+    }
 }
 
 impl From<&str> for Term {
@@ -35,45 +40,39 @@ impl From<&str> for Term {
     }
 }
 
-pub(crate) trait MatchTerm<T> {
-    fn matches(&self, value: T) -> bool;
+pub(crate) trait MatchTerm<T>
+where
+    T: ?Sized,
+{
+    fn matches(&self, value: &T) -> bool;
 }
 
-impl MatchTerm<&NormalizedString> for Term {
-    fn matches(&self, value: &NormalizedString) -> bool {
+impl MatchTerm<str> for Term {
+    fn matches(&self, string: &str) -> bool {
         match (self.anchor_start, self.anchor_end) {
-            (false, false) => value.contains(self.term.as_str()),
-            (true, false) => value.starts_with(self.term.as_str()),
-            (true, true) => value.as_str() == self.term.as_str(),
-            (false, true) => value.ends_with(self.term.as_str()),
+            (false, false) => string.contains(self.term.as_str()),
+            (true, false) => string.starts_with(self.term.as_str()),
+            (true, true) => string == self.term.as_str(),
+            (false, true) => string.ends_with(self.term.as_str()),
         }
     }
 }
 
-impl MatchTerm<&CaseFoldedString> for Term {
-    fn matches(&self, value: &CaseFoldedString) -> bool {
-        let value: &NormalizedString = value;
-        self.matches(value)
-    }
-}
-
-impl MatchTerm<&SearchableString> for Term {
-    fn matches(&self, value: &SearchableString) -> bool {
-        self.matches(&value.folded)
-    }
-}
-
-impl MatchTerm<&Root> for Term {
+impl MatchTerm<Root> for Term {
     fn matches(&self, value: &Root) -> bool {
-        let value: &NormalizedString = value;
-        self.matches(value)
+        self.matches(value.as_str())
     }
 }
 
-/// Convert a query [`Term`] into a sequence of TF-IDF terms.
-impl tf_idf::ToTerms for &Term {
-    fn to_terms(self) -> impl Iterator<Item = tf_idf::Term> {
-        self.term.to_terms()
+impl MatchTerm<NormalizedInternedString> for Term {
+    fn matches(&self, value: &NormalizedInternedString) -> bool {
+        self.matches(value.as_str())
+    }
+}
+
+impl MatchTerm<SearchableInternedString> for Term {
+    fn matches(&self, value: &SearchableInternedString) -> bool {
+        self.matches(value.folded.as_str())
     }
 }
 

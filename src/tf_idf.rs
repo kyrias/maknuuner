@@ -3,33 +3,46 @@ use std::collections::HashMap;
 use itertools::Itertools;
 
 use crate::{
-    lexicon::Lemma,
-    string::{NormalizedString, SearchableString},
+    lexicon::{Lemma, Root},
+    query,
+    string::{NormalizedInternedString, SearchableInternedString},
 };
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub(crate) struct Term(pub [char; 3]);
 
 pub(crate) trait ToTerms {
-    fn to_terms(self) -> impl Iterator<Item = Term>;
+    fn to_terms(&self) -> impl Iterator<Item = Term>;
 }
 
-impl ToTerms for &NormalizedString {
-    fn to_terms(self) -> impl Iterator<Item = Term> {
+impl ToTerms for str {
+    fn to_terms(&self) -> impl Iterator<Item = Term> {
         // Add two spaces to the start of the string to ensure that searching for short strings
         // works.
         Itertools::array_windows("  ".chars().chain(self.chars())).map(Term)
     }
 }
 
-impl ToTerms for &SearchableString {
-    fn to_terms(self) -> impl Iterator<Item = Term> {
-        self.folded.to_terms()
+impl ToTerms for NormalizedInternedString {
+    fn to_terms(&self) -> impl Iterator<Item = Term> {
+        self.as_str().to_terms()
     }
 }
 
-impl ToTerms for &Lemma {
-    fn to_terms(self) -> impl Iterator<Item = Term> {
+impl ToTerms for SearchableInternedString {
+    fn to_terms(&self) -> impl Iterator<Item = Term> {
+        self.folded.as_str().to_terms()
+    }
+}
+
+impl ToTerms for Root {
+    fn to_terms(&self) -> impl Iterator<Item = Term> {
+        self.as_str().to_terms()
+    }
+}
+
+impl ToTerms for Lemma {
+    fn to_terms(&self) -> impl Iterator<Item = Term> {
         let lemma = self
             .root
             .to_terms()
@@ -62,6 +75,12 @@ impl ToTerms for &Lemma {
         //     .flatten();
 
         lemma.chain(definitions)
+    }
+}
+
+impl ToTerms for query::Term {
+    fn to_terms(&self) -> impl Iterator<Item = Term> {
+        self.term().to_terms()
     }
 }
 

@@ -154,7 +154,7 @@ async fn single_result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
         <li id=(("lemma-", lemma.lowest_id())) class="lemma">
             <span lang="ar">
                 "("
-                (&*lemma.root)
+                (&lemma.root.as_str())
                 ") "
                 (&lemma.lemma)
             </span>

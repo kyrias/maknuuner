@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, hash_map::Entry as HMEntry},
-    ops::Deref,
     sync::Arc,
 };
 
@@ -10,7 +9,7 @@ use compact_str::{CompactString, ToCompactString};
 use crate::{
     lexicon::pos::PartOfSpeech,
     query::{self, MatchTerm as _},
-    string::{NormalizedString, SearchableString},
+    string::{NormalizedInternedString, SearchableInternedString},
     tf_idf::{DocumentTermFrequencies, InverseDocumentFrequencies, ToTerms},
 };
 
@@ -43,8 +42,8 @@ pub(crate) struct Record {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Root {
-    Root(NormalizedString),
-    NonTemplaticWordStem(NormalizedString),
+    Root(NormalizedInternedString),
+    NonTemplaticWordStem(NormalizedInternedString),
 }
 
 impl Root {
@@ -55,15 +54,11 @@ impl Root {
             Self::Root(root.as_str().into())
         }
     }
-}
 
-impl Deref for Root {
-    type Target = NormalizedString;
-
-    fn deref(&self) -> &Self::Target {
+    pub(crate) fn as_str(&self) -> &str {
         match self {
-            Self::Root(root) => root,
-            Self::NonTemplaticWordStem(ntws) => ntws,
+            Root::Root(s) => s.as_str(),
+            Root::NonTemplaticWordStem(s) => s.as_str(),
         }
     }
 }
@@ -87,16 +82,16 @@ pub(crate) struct Custom {
 pub(crate) struct Definition {
     pub id: u32,
 
-    pub form: NormalizedString,
-    pub form_bw: NormalizedString,
-    pub caphipp: NormalizedString,
-    pub analysis: SearchableString,
+    pub form: NormalizedInternedString,
+    pub form_bw: NormalizedInternedString,
+    pub caphipp: NormalizedInternedString,
+    pub analysis: SearchableInternedString,
 
-    pub glosses: Vec<SearchableString>,
-    pub gloss_msa: NormalizedString,
+    pub glosses: Vec<SearchableInternedString>,
+    pub gloss_msa: NormalizedInternedString,
 
-    pub example_usage: NormalizedString,
-    pub notes: SearchableString,
+    pub example_usage: NormalizedInternedString,
+    pub notes: SearchableInternedString,
 
     pub custom: Custom,
 }
@@ -125,11 +120,11 @@ impl Definition {
 
     /// Parse a gloss string into a vector of glosses, removing the auto-generated entry suffix if
     /// present.
-    fn parse_glosses(gloss: &str) -> (Vec<SearchableString>, bool) {
+    fn parse_glosses(gloss: &str) -> (Vec<SearchableInternedString>, bool) {
         let stripped = gloss.strip_suffix("[auto]");
         let auto = stripped.is_some();
 
-        let glosses: Vec<SearchableString> = stripped
+        let glosses: Vec<SearchableInternedString> = stripped
             .unwrap_or(gloss)
             .replace("_", " ")
             .split(';')
@@ -206,15 +201,15 @@ impl TryFrom<Record> for Definition {
 pub(crate) struct Phrase {
     pub id: u32,
 
-    pub form: NormalizedString,
-    pub form_bw: NormalizedString,
-    pub caphipp: NormalizedString,
+    pub form: NormalizedInternedString,
+    pub form_bw: NormalizedInternedString,
+    pub caphipp: NormalizedInternedString,
 
-    pub glosses: Vec<SearchableString>,
-    pub gloss_msa: NormalizedString,
+    pub glosses: Vec<SearchableInternedString>,
+    pub gloss_msa: NormalizedInternedString,
 
-    pub example_usage: NormalizedString,
-    pub notes: SearchableString,
+    pub example_usage: NormalizedInternedString,
+    pub notes: SearchableInternedString,
 }
 
 impl Phrase {
@@ -284,11 +279,11 @@ impl TryFrom<Record> for Phrase {
 #[derive(Debug)]
 pub(crate) struct Lemma {
     pub root: Root,
-    pub root_1: NormalizedString,
+    pub root_1: NormalizedInternedString,
 
-    pub lemma: NormalizedString,
-    pub lemma_search: NormalizedString,
-    pub lemma_bw: NormalizedString,
+    pub lemma: NormalizedInternedString,
+    pub lemma_search: NormalizedInternedString,
+    pub lemma_bw: NormalizedInternedString,
 
     pub definitions: Vec<Definition>,
     pub phrases: Vec<Phrase>,
@@ -425,10 +420,11 @@ impl Lexicon {
             .delimiter(b'\t')
             .from_reader(LEXICON.as_bytes());
 
-        // Group the raw records by lemma and part of speech.
+        // Group the raw records by root, lemma, and part of speech.
         //
         // Also separate definitions from phrases.
-        let mut lemmas = HashMap::<(Root, NormalizedString, NormalizedString), Lemma>::new();
+        let mut lemmas =
+            HashMap::<(Root, NormalizedInternedString, NormalizedInternedString), Lemma>::new();
         for record in reader.deserialize::<Record>() {
             let record = record.context("Failed to deserialize lexicon record")?;
             let Some(record) = patch_record(record).context("Failed to patch record")? else {
@@ -438,15 +434,12 @@ impl Lexicon {
             let pos = record.analysis.split(':').next().unwrap().into();
 
             let lemma = Lemma::try_from(record).context("Failed to convert record to lemma")?;
-            let lemma_bw = lemma.lemma_bw.clone();
+            let lemma_id = lemma.lowest_id();
 
             match lemmas.entry((lemma.root.clone(), lemma.lemma.clone(), pos)) {
                 HMEntry::Occupied(occupied) => {
                     occupied.into_mut().merge(lemma).with_context(|| {
-                        format!(
-                            "Failed to merge new lemma into existing lemma for {}",
-                            lemma_bw,
-                        )
+                        format!("Failed to merge new lemma into existing lemma for {lemma_id}",)
                     })?;
                 }
                 HMEntry::Vacant(vacant) => {
