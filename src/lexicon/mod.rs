@@ -6,7 +6,12 @@ use std::{
 
 use anyhow::{Context as _, Result, bail, ensure};
 
-use crate::{Str, lexicon::pos::PartOfSpeech, query};
+use crate::{
+    Str,
+    lexicon::pos::PartOfSpeech,
+    query,
+    tf_idf::{DocumentTermFrequencies, InverseDocumentFrequencies, ToTerms},
+};
 
 pub(crate) mod pos;
 
@@ -288,42 +293,68 @@ pub(crate) struct Lemma {
 }
 
 impl Lemma {
+    pub(crate) fn lowest_id(&self) -> u32 {
+        self.definitions
+            .iter()
+            .map(|def| def.id)
+            .chain(self.phrases.iter().map(|ph| ph.id))
+            .min()
+            .unwrap_or(u32::MAX)
+    }
+
     /// Check whether a query matches this lemma.
-    fn matches(&self, query: &query::Query) -> bool {
+    fn matches(&self, lexicon: &Lexicon, query: &query::Query) -> (bool, f64) {
         match query {
             query::Query::Leaf(leaf) => {
-                self.matches_leaf(leaf)
+                let (leaf_match, tf_idf) = self.matches_leaf(lexicon, leaf);
+                let matches = leaf_match
                     || self.definitions.iter().any(|def| def.matches(leaf))
-                    || self.phrases.iter().any(|ph| ph.matches(leaf))
+                    || self.phrases.iter().any(|ph| ph.matches(leaf));
+                (matches, tf_idf)
             }
             query::Query::Operator { op, lhs, rhs } => {
-                let lhs = self.matches(lhs);
+                let (lhs, lhs_tf_idf) = self.matches(lexicon, lhs);
                 match op {
-                    query::Operator::And => lhs && self.matches(rhs),
-                    query::Operator::Or => lhs || self.matches(rhs),
+                    query::Operator::And => {
+                        if let Some((true, rhs_tf_idf)) = lhs.then(|| self.matches(lexicon, rhs)) {
+                            (true, lhs_tf_idf + rhs_tf_idf)
+                        } else {
+                            (false, 0.0)
+                        }
+                    }
+                    query::Operator::Or => {
+                        let (rhs, rhs_tf_idf) = self.matches(lexicon, rhs);
+                        let tf_idf =
+                            if lhs { lhs_tf_idf } else { 0.0 } + if rhs { rhs_tf_idf } else { 0.0 };
+                        (lhs || rhs, tf_idf)
+                    }
                 }
             }
         }
     }
 
     /// Match a query leaf against the lemma-wide fields.
-    fn matches_leaf(&self, leaf: &query::Leaf) -> bool {
-        match leaf {
+    fn matches_leaf(&self, lexicon: &Lexicon, leaf: &query::Leaf) -> (bool, f64) {
+        let (matches, term) = match leaf {
             query::Leaf::Term { term } => {
-                term.matches(&self.root)
+                let matches = term.matches(&self.root)
                     || term.matches(&self.root_1)
                     || term.matches(&self.lemma)
-                    || term.matches(&self.lemma_search)
+                    || term.matches(&self.lemma_search);
+                (matches, term)
             }
             query::Leaf::Qualified { qualifier, term } => match qualifier {
                 query::Qualifier::Term => {
-                    term.matches(&self.lemma)
+                    let matches = term.matches(&self.lemma)
                         || term.matches(&self.lemma_search)
-                        || term.matches(&self.lemma_bw)
+                        || term.matches(&self.lemma_bw);
+                    (matches, term)
                 }
-                _ => false,
+                _ => (false, term),
             },
-        }
+        };
+
+        (matches, lexicon.tf_idf(self, term))
     }
 
     /// Merge a new lemma into an existing one.
@@ -379,10 +410,12 @@ impl TryFrom<Record> for Lemma {
 
 pub(crate) struct Lexicon {
     pub lemmas: Arc<Vec<Lemma>>,
+    pub inverse_doc_freqs: Arc<InverseDocumentFrequencies>,
+    pub term_freqs: Arc<HashMap<u32, DocumentTermFrequencies>>,
 }
 
 impl Lexicon {
-    pub(super) fn new() -> Result<Self> {
+    pub(crate) fn new() -> Result<Self> {
         const LEXICON: &str = include_str!("../../maknuune-v1.0.1.tsv");
 
         let mut reader = csv::ReaderBuilder::new()
@@ -438,23 +471,41 @@ impl Lexicon {
         // This is only necessary since we don't perform the ranking step of a proper search
         // engine.
         let mut lemmas = lemmas.into_values().collect::<Vec<_>>();
-        lemmas.sort_by_key(|lemma| {
-            lemma
-                .definitions
-                .iter()
-                .map(|def| def.id)
-                .chain(lemma.phrases.iter().map(|ph| ph.id))
-                .min()
-                .expect("All lemmas have at least one entry or phrase")
-        });
+        lemmas.sort_by_key(Lemma::lowest_id);
+
+        let mut idf = InverseDocumentFrequencies::new();
+        let mut term_freqs = HashMap::new();
+        for lemma in &lemmas {
+            let tfs = DocumentTermFrequencies::from(lemma);
+            idf.add_document(&tfs);
+            term_freqs.insert(lemma.lowest_id(), tfs);
+        }
 
         Ok(Self {
             lemmas: Arc::new(lemmas),
+            inverse_doc_freqs: Arc::new(idf),
+            term_freqs: Arc::new(term_freqs),
         })
     }
 
-    pub(crate) fn search(&self, query: &query::Query) -> impl Iterator<Item = &Lemma> {
-        self.lemmas.iter().filter(|lemma| lemma.matches(query))
+    pub(crate) fn search(&self, query: &query::Query) -> impl Iterator<Item = (&Lemma, f64)> {
+        self.lemmas.iter().filter_map(|lemma| {
+            let (matches, tf_idf) = lemma.matches(self, query);
+            matches.then_some((lemma, tf_idf))
+        })
+    }
+
+    fn tf_idf(&self, lemma: &Lemma, term: &query::Term) -> f64 {
+        let term_freqs = self.term_freqs.get(&lemma.lowest_id()).unwrap();
+
+        term.to_terms()
+            .map(|term| {
+                let tf = term_freqs.term_frequency(&term);
+                let idf = self.inverse_doc_freqs.idf(&term);
+
+                tf * idf
+            })
+            .sum()
     }
 }
 

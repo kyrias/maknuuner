@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{cmp::Ordering, time::Instant};
 
 use anyhow::Context as _;
 use topcoat::{
@@ -139,7 +139,7 @@ async fn render_phrase(phrase: &Phrase) -> Result {
 }
 
 #[component]
-async fn single_result(lemma: &Lemma, raw: bool) -> Result {
+async fn single_result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
     // State used to only render the list of glosses if they differ from the previously rendered
     // definition.
     let mut first_entry = true;
@@ -151,7 +151,7 @@ async fn single_result(lemma: &Lemma, raw: bool) -> Result {
         .unwrap();
 
     view! {
-        <li class="result">
+        <li id=(("lemma-", lemma.lowest_id())) class="lemma">
             <span lang="ar">
                 "("
                 (&*lemma.root.raw)
@@ -188,7 +188,13 @@ async fn single_result(lemma: &Lemma, raw: bool) -> Result {
             }
 
             if raw {
-                <div><pre>(format!("{lemma:#?}"))</pre></div>
+                <div>
+                    <p>
+                        "Result has rank: "
+                        (format!("{rank:0.5}"))
+                    </p>
+                    <pre>(format!("{lemma:#?}"))</pre>
+                </div>
             }
         </li>
     }
@@ -201,13 +207,25 @@ async fn search_results(cx: &Cx, query: String, raw: bool) -> Result {
     let lexicon: &Lexicon = app_context(cx);
 
     let instant = Instant::now();
-    let results = lexicon.search(&query).take(50);
+    let mut results: Vec<_> = lexicon.search(&query).collect();
     let elapsed = instant.elapsed();
+
+    fn comp_f64(a: &f64, b: &f64) -> Ordering {
+        if a < b {
+            return Ordering::Less;
+        } else if a > b {
+            return Ordering::Greater;
+        }
+        Ordering::Equal
+    }
+    results.sort_by(|(_, a), (_, b)| comp_f64(a, b).reverse());
+
+    let results = results.into_iter().take(100);
 
     view! {
         <ol>
-            for result in results {
-                single_result(lemma: result, raw: raw)
+            for (result, rank) in results {
+                single_result(lemma: result, rank: rank, raw: raw)
             }
         </ol>
         if raw {

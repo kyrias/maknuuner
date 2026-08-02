@@ -6,10 +6,11 @@ use unicode_normalization::UnicodeNormalization;
 
 mod lexicon;
 mod query;
+mod tf_idf;
 mod web;
 
 /// Case-folded and NKFC normalized string.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct NormalizedString(String);
 
 impl Deref for NormalizedString {
@@ -68,7 +69,9 @@ impl Debug for Str {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    println!("Creating lexicon");
     let lexicon = lexicon::Lexicon::new().context("Failed to parse lexicon")?;
+    println!("Lexicon created");
 
     web::start(lexicon)
         .await

@@ -3,6 +3,7 @@ use anyhow::{Result, bail, ensure};
 use crate::{
     NormalizedString, Str,
     query::lexer::{Lexer, Token},
+    tf_idf,
 };
 
 mod lexer;
@@ -41,6 +42,13 @@ impl From<&str> for Term {
             anchor_start,
             anchor_end,
         }
+    }
+}
+
+/// Convert a query [`Term`] into a sequence of TF-IDF terms.
+impl tf_idf::ToTerms for &Term {
+    fn to_terms(self) -> impl Iterator<Item = tf_idf::Term> {
+        self.term.to_terms()
     }
 }
 
