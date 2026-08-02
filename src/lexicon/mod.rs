@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, hash_map::Entry as HMEntry},
+    ops::Deref,
     sync::Arc,
 };
 
@@ -9,7 +10,7 @@ use compact_str::{CompactString, ToCompactString};
 use crate::{
     lexicon::pos::PartOfSpeech,
     query::{self, MatchTerm as _},
-    string::{NormalizedInternedString, SearchableInternedString},
+    string::{NormalizedString, SearchableString},
     tf_idf::{DocumentTermFrequencies, InverseDocumentFrequencies, ToTerms},
 };
 
@@ -42,23 +43,26 @@ pub(crate) struct Record {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Root {
-    Root(NormalizedInternedString),
-    NonTemplaticWordStem(NormalizedInternedString),
+    Root(NormalizedString),
+    NonTemplaticWordStem(NormalizedString),
 }
 
 impl Root {
     fn new(root: CompactString, root_ntws: CompactString) -> Self {
         if root == "NTWS" {
-            Self::NonTemplaticWordStem(root_ntws.as_str().into())
+            Self::NonTemplaticWordStem(NormalizedString::interned(root_ntws.chars()))
         } else {
-            Self::Root(root.as_str().into())
+            Self::Root(NormalizedString::interned(root.chars()))
         }
     }
+}
 
-    pub(crate) fn as_str(&self) -> &str {
+impl Deref for Root {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
         match self {
-            Root::Root(s) => s.as_str(),
-            Root::NonTemplaticWordStem(s) => s.as_str(),
+            Root::Root(string) | Root::NonTemplaticWordStem(string) => string,
         }
     }
 }
@@ -82,16 +86,16 @@ pub(crate) struct Custom {
 pub(crate) struct Definition {
     pub id: u32,
 
-    pub form: NormalizedInternedString,
-    pub form_bw: NormalizedInternedString,
-    pub caphipp: NormalizedInternedString,
-    pub analysis: SearchableInternedString,
+    pub form: NormalizedString,
+    pub form_bw: NormalizedString,
+    pub caphipp: NormalizedString,
+    pub analysis: SearchableString,
 
-    pub glosses: Vec<SearchableInternedString>,
-    pub gloss_msa: NormalizedInternedString,
+    pub glosses: Vec<SearchableString>,
+    pub gloss_msa: NormalizedString,
 
-    pub example_usage: NormalizedInternedString,
-    pub notes: SearchableInternedString,
+    pub example_usage: NormalizedString,
+    pub notes: SearchableString,
 
     pub custom: Custom,
 }
@@ -101,34 +105,32 @@ impl Definition {
         match query {
             query::Leaf::Term { term } => {
                 term.matches(&self.form)
+                    || term.matches(&self.form_bw)
                     || self.glosses.iter().any(|gloss| term.matches(gloss))
-                    || term.matches(&self.gloss_msa)
-                    || term.matches(&self.notes)
             }
             query::Leaf::Qualified { qualifier, term } => match qualifier {
-                query::Qualifier::Term => {
-                    term.matches(&self.gloss_msa) || term.matches(&self.caphipp)
+                query::Qualifier::Lemma => {
+                    term.matches(&self.form)
+                        || term.matches(&self.form_bw)
+                        || term.matches(&self.caphipp)
                 }
                 query::Qualifier::Analysis => term.matches(&self.analysis),
-                query::Qualifier::Gloss => {
-                    self.glosses.iter().any(|gloss| term.matches(gloss))
-                        || term.matches(&self.gloss_msa)
-                }
+                query::Qualifier::Gloss => self.glosses.iter().any(|gloss| term.matches(gloss)),
             },
         }
     }
 
     /// Parse a gloss string into a vector of glosses, removing the auto-generated entry suffix if
     /// present.
-    fn parse_glosses(gloss: &str) -> (Vec<SearchableInternedString>, bool) {
+    fn parse_glosses(gloss: &str) -> (Vec<SearchableString>, bool) {
         let stripped = gloss.strip_suffix("[auto]");
         let auto = stripped.is_some();
 
-        let glosses: Vec<SearchableInternedString> = stripped
+        let glosses: Vec<SearchableString> = stripped
             .unwrap_or(gloss)
             .replace("_", " ")
             .split(';')
-            .map(|g| g.trim().into())
+            .map(|g| SearchableString::interned(g.trim().chars()))
             .collect();
 
         (glosses, auto)
@@ -182,14 +184,14 @@ impl TryFrom<Record> for Definition {
 
         Ok(Self {
             id,
-            form: form.as_str().into(),
-            form_bw: form_bw.as_str().into(),
-            caphipp: caphipp.as_str().into(),
-            analysis: analysis.as_str().into(),
+            form: NormalizedString::interned(form.chars()),
+            form_bw: NormalizedString::interned(form_bw.chars()),
+            caphipp: NormalizedString::interned(caphipp.chars()),
+            analysis: SearchableString::interned(analysis.chars()),
             glosses,
-            gloss_msa: gloss_msa.as_str().into(),
-            example_usage: example_usage.as_str().into(),
-            notes: notes.as_str().into(),
+            gloss_msa: NormalizedString::interned(gloss_msa.chars()),
+            example_usage: NormalizedString::interned(example_usage.chars()),
+            notes: SearchableString::interned(notes.chars()),
 
             custom: Custom { pos, auto },
         })
@@ -201,15 +203,15 @@ impl TryFrom<Record> for Definition {
 pub(crate) struct Phrase {
     pub id: u32,
 
-    pub form: NormalizedInternedString,
-    pub form_bw: NormalizedInternedString,
-    pub caphipp: NormalizedInternedString,
+    pub form: NormalizedString,
+    pub form_bw: NormalizedString,
+    pub caphipp: NormalizedString,
 
-    pub glosses: Vec<SearchableInternedString>,
-    pub gloss_msa: NormalizedInternedString,
+    pub glosses: Vec<SearchableString>,
+    pub gloss_msa: NormalizedString,
 
-    pub example_usage: NormalizedInternedString,
-    pub notes: SearchableInternedString,
+    pub example_usage: NormalizedString,
+    pub notes: SearchableString,
 }
 
 impl Phrase {
@@ -217,19 +219,17 @@ impl Phrase {
         match query {
             query::Leaf::Term { term } => {
                 term.matches(&self.form)
+                    || term.matches(&self.form_bw)
                     || self.glosses.iter().any(|gloss| term.matches(gloss))
-                    || term.matches(&self.gloss_msa)
-                    || term.matches(&self.notes)
             }
             query::Leaf::Qualified { qualifier, term } => match qualifier {
-                query::Qualifier::Term => {
-                    term.matches(&self.gloss_msa) || term.matches(&self.caphipp)
+                query::Qualifier::Lemma => {
+                    term.matches(&self.form)
+                        || term.matches(&self.form_bw)
+                        || term.matches(&self.caphipp)
                 }
                 query::Qualifier::Analysis => false,
-                query::Qualifier::Gloss => {
-                    self.glosses.iter().any(|gloss| term.matches(gloss))
-                        || term.matches(&self.gloss_msa)
-                }
+                query::Qualifier::Gloss => self.glosses.iter().any(|gloss| term.matches(gloss)),
             },
         }
     }
@@ -265,13 +265,13 @@ impl TryFrom<Record> for Phrase {
 
         Ok(Self {
             id,
-            form: form.as_str().into(),
-            form_bw: form_bw.as_str().into(),
-            caphipp: caphipp.as_str().into(),
+            form: NormalizedString::interned(form.chars()),
+            form_bw: NormalizedString::interned(form_bw.chars()),
+            caphipp: NormalizedString::interned(caphipp.chars()),
             glosses,
-            gloss_msa: gloss_msa.as_str().into(),
-            example_usage: example_usage.as_str().into(),
-            notes: notes.as_str().into(),
+            gloss_msa: NormalizedString::interned(gloss_msa.chars()),
+            example_usage: NormalizedString::interned(example_usage.chars()),
+            notes: SearchableString::interned(notes.chars()),
         })
     }
 }
@@ -279,11 +279,11 @@ impl TryFrom<Record> for Phrase {
 #[derive(Debug)]
 pub(crate) struct Lemma {
     pub root: Root,
-    pub root_1: NormalizedInternedString,
+    pub root_1: NormalizedString,
 
-    pub lemma: NormalizedInternedString,
-    pub lemma_search: NormalizedInternedString,
-    pub lemma_bw: NormalizedInternedString,
+    pub lemma: NormalizedString,
+    pub lemma_search: NormalizedString,
+    pub lemma_bw: NormalizedString,
 
     pub definitions: Vec<Definition>,
     pub phrases: Vec<Phrase>,
@@ -335,19 +335,19 @@ impl Lemma {
         let (matches, term) = match leaf {
             query::Leaf::Term { term } => {
                 let matches = term.matches(&self.root)
-                    || term.matches(&self.root_1)
                     || term.matches(&self.lemma)
                     || term.matches(&self.lemma_search);
                 (matches, term)
             }
+
             query::Leaf::Qualified { qualifier, term } => match qualifier {
-                query::Qualifier::Term => {
+                query::Qualifier::Lemma => {
                     let matches = term.matches(&self.lemma)
                         || term.matches(&self.lemma_search)
                         || term.matches(&self.lemma_bw);
                     (matches, term)
                 }
-                _ => (false, term),
+                query::Qualifier::Analysis | query::Qualifier::Gloss => (false, term),
             },
         };
 
@@ -382,10 +382,10 @@ impl TryFrom<Record> for Lemma {
 
         let mut lemma = Lemma {
             root: Root::new(root, root_ntws),
-            root_1: root_1.as_str().into(),
-            lemma: lemma.as_str().into(),
-            lemma_search: lemma_search.as_str().into(),
-            lemma_bw: lemma_bw.as_str().into(),
+            root_1: NormalizedString::interned(root_1.chars()),
+            lemma: NormalizedString::interned(lemma.chars()),
+            lemma_search: NormalizedString::interned(lemma_search.chars()),
+            lemma_bw: NormalizedString::interned(lemma_bw.chars()),
 
             definitions: Default::default(),
             phrases: Default::default(),
@@ -423,15 +423,15 @@ impl Lexicon {
         // Group the raw records by root, lemma, and part of speech.
         //
         // Also separate definitions from phrases.
-        let mut lemmas =
-            HashMap::<(Root, NormalizedInternedString, NormalizedInternedString), Lemma>::new();
+        let mut lemmas = HashMap::<(Root, NormalizedString, NormalizedString), Lemma>::new();
         for record in reader.deserialize::<Record>() {
             let record = record.context("Failed to deserialize lexicon record")?;
             let Some(record) = patch_record(record).context("Failed to patch record")? else {
                 continue;
             };
 
-            let pos = record.analysis.split(':').next().unwrap().into();
+            let pos =
+                NormalizedString::interned(record.analysis.split(':').next().unwrap().chars());
 
             let lemma = Lemma::try_from(record).context("Failed to convert record to lemma")?;
             let lemma_id = lemma.lowest_id();

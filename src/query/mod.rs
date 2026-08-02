@@ -1,24 +1,20 @@
+use std::ops::Deref;
+
 use anyhow::{Result, bail, ensure};
 
 use crate::{
     lexicon::Root,
     query::lexer::{Lexer, Token},
-    string::{NormalizedCompactString, NormalizedInternedString, SearchableInternedString},
+    string::{CaseFoldedString, NormalizedString, SearchableString},
 };
 
 mod lexer;
 
 #[derive(Debug)]
 pub(crate) struct Term {
-    term: NormalizedCompactString,
+    term: SearchableString,
     anchor_start: bool,
     anchor_end: bool,
-}
-
-impl Term {
-    pub(crate) fn term(&self) -> &str {
-        self.term.as_str()
-    }
 }
 
 impl From<&str> for Term {
@@ -33,10 +29,18 @@ impl From<&str> for Term {
         };
 
         Term {
-            term: value.into(),
+            term: SearchableString::allocated(value.chars()),
             anchor_start,
             anchor_end,
         }
+    }
+}
+
+impl Deref for Term {
+    type Target = SearchableString;
+
+    fn deref(&self) -> &Self::Target {
+        &self.term
     }
 }
 
@@ -47,40 +51,48 @@ where
     fn matches(&self, value: &T) -> bool;
 }
 
-impl MatchTerm<str> for Term {
-    fn matches(&self, string: &str) -> bool {
+impl MatchTerm<NormalizedString> for Term {
+    fn matches(&self, string: &NormalizedString) -> bool {
         match (self.anchor_start, self.anchor_end) {
-            (false, false) => string.contains(self.term.as_str()),
-            (true, false) => string.starts_with(self.term.as_str()),
-            (true, true) => string == self.term.as_str(),
-            (false, true) => string.ends_with(self.term.as_str()),
+            (false, false) => string.contains(&*self.term.normalized),
+            (true, false) => string.starts_with(&*self.term.normalized),
+            (true, true) => string == &self.term.normalized,
+            (false, true) => string.ends_with(&*self.term.normalized),
         }
     }
 }
 
+impl MatchTerm<CaseFoldedString> for Term {
+    fn matches(&self, string: &CaseFoldedString) -> bool {
+        match (self.anchor_start, self.anchor_end) {
+            (false, false) => string.contains(&*self.term.case_folded),
+            (true, false) => string.starts_with(&*self.term.case_folded),
+            (true, true) => string == &self.term.case_folded,
+            (false, true) => string.ends_with(&*self.term.case_folded),
+        }
+    }
+}
+
+impl MatchTerm<SearchableString> for Term {
+    fn matches(&self, value: &SearchableString) -> bool {
+        self.matches(&value.case_folded)
+    }
+}
+
 impl MatchTerm<Root> for Term {
-    fn matches(&self, value: &Root) -> bool {
-        self.matches(value.as_str())
-    }
-}
-
-impl MatchTerm<NormalizedInternedString> for Term {
-    fn matches(&self, value: &NormalizedInternedString) -> bool {
-        self.matches(value.as_str())
-    }
-}
-
-impl MatchTerm<SearchableInternedString> for Term {
-    fn matches(&self, value: &SearchableInternedString) -> bool {
-        self.matches(value.searchable.as_str())
+    fn matches(&self, root: &Root) -> bool {
+        let string = match root {
+            Root::Root(string) | Root::NonTemplaticWordStem(string) => string,
+        };
+        self.matches(string)
     }
 }
 
 #[derive(Debug)]
 pub(crate) enum Qualifier {
-    Term,
     Analysis,
     Gloss,
+    Lemma,
 }
 
 impl TryFrom<&str> for Qualifier {
@@ -88,10 +100,10 @@ impl TryFrom<&str> for Qualifier {
 
     fn try_from(value: &str) -> Result<Self> {
         match value {
-            "lemma" => Ok(Self::Term),
             "analysis" => Ok(Self::Analysis),
             "gloss" => Ok(Self::Gloss),
-            other => bail!("Unknown qualifier {other:?}, expected lemma, analysis, or gloss"),
+            "lemma" => Ok(Self::Lemma),
+            other => bail!("Unknown qualifier {other:?}, expected analysis, lemma, or gloss"),
         }
     }
 }
@@ -123,7 +135,7 @@ impl Query {
         if query_string.trim().is_empty() {
             return Ok(Query::Leaf(Leaf::Term {
                 term: Term {
-                    term: "".into(),
+                    term: SearchableString::interned("".chars()),
                     anchor_start: false,
                     anchor_end: false,
                 },

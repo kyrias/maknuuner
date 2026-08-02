@@ -2,11 +2,7 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 
-use crate::{
-    lexicon::{Lemma, Root},
-    query,
-    string::{NormalizedInternedString, SearchableInternedString},
-};
+use crate::{lexicon::Lemma, string::SearchableString};
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub(crate) struct Term(pub [char; 3]);
@@ -23,21 +19,11 @@ impl ToTerms for str {
     }
 }
 
-impl ToTerms for NormalizedInternedString {
+impl ToTerms for SearchableString {
     fn to_terms(&self) -> impl Iterator<Item = Term> {
-        self.as_str().to_terms()
-    }
-}
-
-impl ToTerms for SearchableInternedString {
-    fn to_terms(&self) -> impl Iterator<Item = Term> {
-        self.searchable.as_str().to_terms()
-    }
-}
-
-impl ToTerms for Root {
-    fn to_terms(&self) -> impl Iterator<Item = Term> {
-        self.as_str().to_terms()
+        self.normalized
+            .to_terms()
+            .chain(self.case_folded.to_terms())
     }
 }
 
@@ -75,12 +61,6 @@ impl ToTerms for Lemma {
         //     .flatten();
 
         lemma.chain(definitions)
-    }
-}
-
-impl ToTerms for query::Term {
-    fn to_terms(&self) -> impl Iterator<Item = Term> {
-        self.term().to_terms()
     }
 }
 

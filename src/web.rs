@@ -154,7 +154,7 @@ async fn single_result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
         <li id=(("lemma-", lemma.lowest_id())) class="lemma">
             <span lang="ar">
                 "("
-                (&lemma.root.as_str())
+                (&*lemma.root)
                 ") "
                 (&lemma.lemma)
             </span>
@@ -252,7 +252,7 @@ async fn search(cx: &Cx) -> Result {
     let query = params
         .query
         .clone()
-        .unwrap_or_else(|| r#"gloss:^money analysis:"^noun:p$""#.to_string());
+        .unwrap_or_else(|| r#"gloss:^money analysis:"^NOUN:P$""#.to_string());
     let raw = params.raw.unwrap_or(false);
 
     view! {
