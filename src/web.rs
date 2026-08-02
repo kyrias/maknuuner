@@ -101,7 +101,7 @@ fn render_pos(pos: PartOfSpeech) -> (&'static str, Option<&'static str>) {
 #[component]
 async fn render_definition(definition: &Definition, render_glosses: bool) -> Result {
     view! {
-        <li class="term">
+        <li id=(("def-", definition.id)) class="definition">
             <span lang="ar">(&definition.form.raw)</span>
             if let Some(pos) = &definition.custom.pos {
                 <span>
@@ -127,7 +127,7 @@ async fn render_definition(definition: &Definition, render_glosses: bool) -> Res
 #[component]
 async fn render_phrase(phrase: &Phrase) -> Result {
     view! {
-        <li class="phrase">
+        <li id=(("ph-", phrase.id)) class="phrase">
             <span lang="ar">(&phrase.form.raw)</span>
             <ol>
                 for gloss in &phrase.glosses {
