@@ -11,7 +11,7 @@ use topcoat::{
 };
 
 use crate::{
-    lexicon::{Entry, Lemma, Lexicon, pos::PartOfSpeech},
+    lexicon::{Definition, Lemma, Lexicon, Phrase, pos::PartOfSpeech},
     query::Query,
 };
 
@@ -67,7 +67,6 @@ fn render_pos(pos: PartOfSpeech) -> (&'static str, Option<&'static str>) {
             NounFeature::Plural => "[pl.]",
             NounFeature::MasculinePlural => "[m.pl.]",
             NounFeature::FemininePlural => "[f.pl.]",
-            NounFeature::Phrase => "[ph.]",
         }
     }
 
@@ -76,7 +75,6 @@ fn render_pos(pos: PartOfSpeech) -> (&'static str, Option<&'static str>) {
             VerbFeature::Perfective => "[p.]",
             VerbFeature::Command => "[c.]",
             VerbFeature::Imperfective => "[i.]",
-            VerbFeature::Phrase => "[ph.]",
         }
     }
 
@@ -94,18 +92,18 @@ fn render_pos(pos: PartOfSpeech) -> (&'static str, Option<&'static str>) {
         }
         PartOfSpeech::Verb(verb) => match verb {
             Verb::Plain(vf) => ("Verb", Some(fmt_verb_feature(vf))),
-            Verb::Nominal(_) => ("Verb (nominal)", None),
-            Verb::Pseudo(_) => ("Verb (pseudo)", None),
+            Verb::Nominal => ("Verb (nominal)", None),
+            Verb::Pseudo => ("Verb (pseudo)", None),
         },
     }
 }
 
 #[component]
-async fn render_entry(entry: &Entry, render_glosses: bool) -> Result {
+async fn render_definition(definition: &Definition, render_glosses: bool) -> Result {
     view! {
         <li class="term">
-            <span lang="ar">(&entry.form.raw)</span>
-            if let Some(pos) = &entry.custom.pos {
+            <span lang="ar">(&definition.form.raw)</span>
+            if let Some(pos) = &definition.custom.pos {
                 <span>
                     let (pos, feat) = render_pos(*pos);
                     " "
@@ -117,7 +115,7 @@ async fn render_entry(entry: &Entry, render_glosses: bool) -> Result {
 
             if render_glosses {
                 <ol>
-                    for gloss in &entry.glosses {
+                    for gloss in &definition.glosses {
                         <li>(&gloss.raw)</li>
                     }
                 </ol>
@@ -127,7 +125,7 @@ async fn render_entry(entry: &Entry, render_glosses: bool) -> Result {
 }
 
 #[component]
-async fn render_phrase(phrase: &Entry) -> Result {
+async fn render_phrase(phrase: &Phrase) -> Result {
     view! {
         <li class="phrase">
             <span lang="ar">(&phrase.form.raw)</span>
@@ -145,12 +143,12 @@ async fn single_result(lemma: &Lemma, raw: bool) -> Result {
     // State used to only render the list of glosses if they differ from the previously rendered
     // definition.
     let mut first_entry = true;
-    let mut glosses = &lemma
-        .entries
+    let mut glosses = lemma
+        .definitions
         .first()
-        .or_else(|| lemma.phrases.first())
-        .unwrap()
-        .glosses;
+        .map(|def| &def.glosses)
+        .or_else(|| lemma.phrases.first().map(|ph| &ph.glosses))
+        .unwrap();
 
     view! {
         <li class="result">
@@ -161,15 +159,18 @@ async fn single_result(lemma: &Lemma, raw: bool) -> Result {
                 (&lemma.lemma.raw)
             </span>
 
-            if !lemma.entries.is_empty() {
+            if !lemma.definitions.is_empty() {
                 <div>
                     <p>"Definitions"</p>
                     <ol>
-                        for entry in lemma.entries.iter() {
+                        for entry in lemma.definitions.iter() {
                             let render_glosses = first_entry || glosses != &entry.glosses;
                             let _ = glosses = &entry.glosses;
                             let _ = first_entry = false;
-                            render_entry(entry: entry, render_glosses: render_glosses)
+                            render_definition(
+                                definition: entry,
+                                render_glosses: render_glosses
+                            )
                         }
                     </ol>
                 </div>

@@ -14,7 +14,6 @@ pub(crate) mod noun {
         Plural,
         MasculinePlural,
         FemininePlural,
-        Phrase, // TODO: Pre-process dataset to separate phrases out?
     }
 
     impl FromStr for NounFeature {
@@ -32,7 +31,6 @@ pub(crate) mod noun {
                 "MP" => Self::MasculinePlural,
                 "MS" => Self::MasculineSingular,
                 "P" => Self::Plural,
-                "PHRASE" => Self::Phrase,
                 "S" => Self::Singular,
                 _ => bail!("Unknown NounFeature {s:?}"),
             };
@@ -91,7 +89,6 @@ pub(crate) mod verb {
         Perfective,
         Command,
         Imperfective,
-        Phrase, // TODO: Pre-process dataset to separate phrases out?
     }
 
     impl FromStr for VerbFeature {
@@ -106,7 +103,6 @@ pub(crate) mod verb {
                 "C" => Self::Command,
                 "I" => Self::Imperfective,
                 "P" => Self::Perfective,
-                "PHRASE" => Self::Phrase,
                 _ => bail!("Unknown VerbFeature {s:?}"),
             };
 
@@ -115,30 +111,12 @@ pub(crate) mod verb {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-    pub(crate) struct Phrase;
-
-    impl FromStr for Phrase {
-        type Err = Error;
-
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            let s = s
-                .strip_prefix(':')
-                .context("VerbFeature didn't start with colon")?;
-
-            match s {
-                "PHRASE" => Ok(Self),
-                _ => bail!("Unknown VerbFeature {s:?}"),
-            }
-        }
-    }
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub(crate) enum Verb {
         Plain(VerbFeature),
         /// Non-inflectional verb, also called frozen verbs
-        Nominal(Option<Phrase>),
+        Nominal,
         /// Pseudo verb
-        Pseudo(Option<Phrase>),
+        Pseudo,
     }
 
     impl FromStr for Verb {
@@ -150,19 +128,8 @@ pub(crate) mod verb {
 
             let verb = match prefix {
                 "" => Self::Plain(suffix.parse()?),
-                "_NOM" | "_PSEUDO" => {
-                    let feature = suffix
-                        .is_empty()
-                        .not()
-                        .then(|| suffix.parse())
-                        .transpose()?;
-
-                    if prefix == "_NOM" {
-                        Self::Nominal(feature)
-                    } else {
-                        Self::Pseudo(feature)
-                    }
-                }
+                "_NOM" => Self::Nominal,
+                "_PSEUDO" => Self::Pseudo,
                 _ => bail!("Unknown Verb sub-type {prefix:?}"),
             };
 

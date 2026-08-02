@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Context as _, Result, ensure};
+use anyhow::{Context as _, Result, bail, ensure};
 
 use crate::{Str, lexicon::pos::PartOfSpeech, query};
 
@@ -33,8 +33,6 @@ pub(crate) struct Record {
     gloss_msa: String,
     example_usage: String,
     notes: String,
-    source: String,
-    annotator: String,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -79,7 +77,7 @@ pub(crate) struct Custom {
 //       removing the phrase options from all the PoS feature types.
 #[allow(unused)]
 #[derive(Debug)]
-pub(crate) struct Entry {
+pub(crate) struct Definition {
     pub id: u32,
 
     pub form: Str,
@@ -92,13 +90,11 @@ pub(crate) struct Entry {
 
     pub example_usage: Str,
     pub notes: Str,
-    pub source: Str,
-    pub annotator: Str,
 
     pub custom: Custom,
 }
 
-impl Entry {
+impl Definition {
     fn matches(&self, query: &query::Leaf) -> bool {
         match query {
             query::Leaf::Term { term } => {
@@ -155,8 +151,14 @@ impl Entry {
     }
 }
 
-impl From<Record> for Entry {
-    fn from(record: Record) -> Self {
+impl TryFrom<Record> for Definition {
+    type Error = anyhow::Error;
+
+    fn try_from(record: Record) -> Result<Self, Self::Error> {
+        if record.analysis.ends_with(":PHRASE") {
+            bail!("Tried to convert a phrase record into Phrase");
+        }
+
         let Record {
             id,
             root: _,
@@ -173,14 +175,12 @@ impl From<Record> for Entry {
             gloss_msa,
             example_usage,
             notes,
-            source,
-            annotator,
         } = record;
 
         let (glosses, auto) = Self::parse_glosses(&gloss);
         let pos = Self::parse_pos(id, &analysis);
 
-        Self {
+        Ok(Self {
             id,
             form: form.into(),
             form_bw: form_bw.into(),
@@ -190,11 +190,90 @@ impl From<Record> for Entry {
             gloss_msa: gloss_msa.into(),
             example_usage: example_usage.into(),
             notes: notes.into(),
-            source: source.into(),
-            annotator: annotator.into(),
 
             custom: Custom { pos, auto },
+        })
+    }
+}
+
+#[allow(unused)]
+#[derive(Debug)]
+pub(crate) struct Phrase {
+    pub id: u32,
+
+    pub form: Str,
+    pub form_bw: Str,
+    pub caphipp: Str,
+
+    pub glosses: Vec<Str>,
+    pub gloss_msa: Str,
+
+    pub example_usage: String,
+    pub notes: String,
+}
+
+impl Phrase {
+    fn matches(&self, query: &query::Leaf) -> bool {
+        match query {
+            query::Leaf::Term { term } => {
+                term.matches(&self.form)
+                    || term.matches(&self.form_bw)
+                    || term.matches(&self.caphipp)
+                    || self.glosses.iter().any(|gloss| term.matches(gloss))
+                    || term.matches(&self.gloss_msa)
+            }
+            query::Leaf::Qualified { qualifier, term } => match qualifier {
+                query::Qualifier::Term => {
+                    term.matches(&self.gloss_msa) || term.matches(&self.caphipp)
+                }
+                query::Qualifier::Analysis => false,
+                query::Qualifier::Gloss => {
+                    self.glosses.iter().any(|gloss| term.matches(gloss))
+                        || term.matches(&self.gloss_msa)
+                }
+            },
         }
+    }
+}
+
+impl TryFrom<Record> for Phrase {
+    type Error = anyhow::Error;
+
+    fn try_from(record: Record) -> Result<Self, Self::Error> {
+        if !record.analysis.ends_with(":PHRASE") {
+            bail!("Tried to convert a non-phrase record into Phrase");
+        }
+
+        let Record {
+            id,
+            root: _,
+            root_ntws: _,
+            root_1: _,
+            lemma: _,
+            lemma_search: _,
+            form,
+            lemma_bw: _,
+            form_bw,
+            caphipp,
+            analysis: _,
+            gloss,
+            gloss_msa,
+            example_usage,
+            notes,
+        } = record;
+
+        let (glosses, _auto) = Definition::parse_glosses(&gloss);
+
+        Ok(Self {
+            id,
+            form: form.into(),
+            form_bw: form_bw.into(),
+            caphipp: caphipp.into(),
+            glosses,
+            gloss_msa: gloss_msa.into(),
+            example_usage,
+            notes,
+        })
     }
 }
 
@@ -207,8 +286,8 @@ pub(crate) struct Lemma {
     pub lemma_search: Str,
     pub lemma_bw: Str,
 
-    pub entries: Vec<Entry>,
-    pub phrases: Vec<Entry>,
+    pub definitions: Vec<Definition>,
+    pub phrases: Vec<Phrase>,
 }
 
 impl Lemma {
@@ -217,11 +296,8 @@ impl Lemma {
         match query {
             query::Query::Leaf(leaf) => {
                 self.matches_leaf(leaf)
-                    || self
-                        .entries
-                        .iter()
-                        .chain(self.phrases.iter())
-                        .any(|entry| entry.matches(leaf))
+                    || self.definitions.iter().any(|def| def.matches(leaf))
+                    || self.phrases.iter().any(|ph| ph.matches(leaf))
             }
             query::Query::Operator { op, lhs, rhs } => {
                 let lhs = self.matches(lhs);
@@ -254,64 +330,16 @@ impl Lemma {
         }
     }
 
-    /// Merge a record into an existing lemma.
-    fn merge(&mut self, record: Record) -> Result<()> {
-        let Record {
-            id,
-            root,
-            root_ntws,
-            root_1,
-            lemma,
-            lemma_search,
-            form,
-            lemma_bw,
-            form_bw,
-            caphipp,
-            analysis,
-            gloss,
-            gloss_msa,
-            example_usage,
-            notes,
-            source,
-            annotator,
-        } = record;
+    /// Merge a new lemma into an existing one.
+    fn merge(&mut self, lemma: Lemma) -> Result<()> {
+        ensure!(self.root == lemma.root);
+        ensure!(self.root_1 == lemma.root_1);
+        ensure!(self.lemma == lemma.lemma);
+        ensure!(self.lemma_search == lemma.lemma_search);
+        ensure!(self.lemma_bw == lemma.lemma_bw);
 
-        let root = root.unwrap();
-        if root == "NTWS" {
-            ensure!(self.root.raw == root_ntws.as_deref().unwrap());
-        } else {
-            ensure!(self.root.raw == root.as_str());
-        }
-        ensure!(Some(&self.root_1.raw) == root_1.as_ref());
-        ensure!(Some(&self.lemma.raw) == lemma.as_ref());
-        ensure!(Some(&self.lemma_search.raw) == lemma_search.as_ref());
-        ensure!(Some(&self.lemma_bw.raw) == lemma_bw.as_ref());
-
-        let is_phrase = analysis.ends_with(":PHRASE");
-        let (glosses, auto) = Entry::parse_glosses(&gloss);
-        let pos = Entry::parse_pos(id, &analysis);
-
-        let entry = Entry {
-            id,
-            form: form.into(),
-            form_bw: form_bw.into(),
-            caphipp: caphipp.into(),
-            analysis: analysis.into(),
-            glosses,
-            gloss_msa: gloss_msa.into(),
-            example_usage: example_usage.into(),
-            notes: notes.into(),
-            source: source.into(),
-            annotator: annotator.into(),
-
-            custom: Custom { pos, auto },
-        };
-
-        if is_phrase {
-            self.phrases.push(entry);
-        } else {
-            self.entries.push(entry);
-        };
+        self.definitions.extend(lemma.definitions.into_iter());
+        self.phrases.extend(lemma.phrases.into_iter());
 
         Ok(())
     }
@@ -335,15 +363,19 @@ impl TryFrom<Record> for Lemma {
             lemma_search: lemma_search.into(),
             lemma_bw: lemma_bw.into(),
 
-            entries: Default::default(),
+            definitions: Default::default(),
             phrases: Default::default(),
         };
 
         if record.analysis.ends_with(":PHRASE") {
-            lemma.phrases.push(Entry::from(record));
+            lemma
+                .phrases
+                .push(Phrase::try_from(record).context("Failed to convert Record to Phrase")?);
         } else {
-            lemma.entries.push(Entry::from(record));
-        };
+            lemma
+                .definitions
+                .push(Definition::try_from(record).context("Failed to convert Record to Phrase")?);
+        }
 
         Ok(lemma)
     }
@@ -379,32 +411,30 @@ impl Lexicon {
                 record.analysis.split(':').next().unwrap().to_string(),
             );
 
+            let lemma = Lemma::try_from(record).context("Failed to convert record to lemma")?;
+            let lemma_bw = lemma.lemma_bw.raw.clone();
+
             match lemmas.entry(lemma_key) {
                 HMEntry::Occupied(occupied) => {
-                    let lemma = occupied.into_mut();
-                    lemma.merge(record).with_context(|| {
+                    occupied.into_mut().merge(lemma).with_context(|| {
                         format!(
-                            "Failed to merge record into existing lemma for {}",
-                            lemma.lemma_bw.raw,
+                            "Failed to merge new lemma into existing lemma for {}",
+                            lemma_bw,
                         )
                     })?;
                 }
                 HMEntry::Vacant(vacant) => {
-                    vacant.insert_entry(
-                        Lemma::try_from(record).context("Failed to convert record to lemma")?,
-                    );
+                    vacant.insert_entry(lemma);
                 }
             };
         }
 
-        // Sort entries by part of speech and ID.
+        // Sort definitions and phrases by part of speech and ID.
         for lemma in lemmas.values_mut() {
             lemma
-                .entries
+                .definitions
                 .sort_by_key(|entry| (entry.custom.pos, entry.id));
-            lemma
-                .phrases
-                .sort_by_key(|entry| (entry.custom.pos, entry.id));
+            lemma.phrases.sort_by_key(|entry| entry.id);
         }
 
         // Sort lemmas by lowest ID among entries and phrases to have a consistent order.
@@ -414,10 +444,10 @@ impl Lexicon {
         let mut lemmas = lemmas.into_values().collect::<Vec<_>>();
         lemmas.sort_by_key(|lemma| {
             lemma
-                .entries
+                .definitions
                 .iter()
-                .chain(lemma.phrases.iter())
-                .map(|entry| entry.id)
+                .map(|def| def.id)
+                .chain(lemma.phrases.iter().map(|ph| ph.id))
                 .min()
                 .expect("All lemmas have at least one entry or phrase")
         });
