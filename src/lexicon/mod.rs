@@ -427,24 +427,19 @@ impl Lexicon {
         // Group the raw records by lemma and part of speech.
         //
         // Also separate definitions from phrases.
-        let mut lemmas = HashMap::<(Root, String, String), Lemma>::new();
+        let mut lemmas = HashMap::<(Root, NormalizedString, NormalizedString), Lemma>::new();
         for record in reader.deserialize::<Record>() {
-            let record = patch_record(record.context("Failed to deserialize lexicon record")?)
-                .context("Failed to patch record")?;
+            let record = record.context("Failed to deserialize lexicon record")?;
+            let Some(record) = patch_record(record).context("Failed to patch record")? else {
+                continue;
+            };
 
-            let lemma_key = (
-                Root::new(
-                    record.root.clone().unwrap(),
-                    record.root_ntws.clone().unwrap_or_default(),
-                ),
-                record.lemma.clone().unwrap(),
-                record.analysis.split(':').next().unwrap().to_string(),
-            );
+            let pos = record.analysis.split(':').next().unwrap().into();
 
             let lemma = Lemma::try_from(record).context("Failed to convert record to lemma")?;
             let lemma_bw = lemma.lemma_bw.clone();
 
-            match lemmas.entry(lemma_key) {
+            match lemmas.entry((lemma.root.clone(), lemma.lemma.clone(), pos)) {
                 HMEntry::Occupied(occupied) => {
                     occupied.into_mut().merge(lemma).with_context(|| {
                         format!(
@@ -511,10 +506,20 @@ impl Lexicon {
 }
 
 /// Apply patches to records with errors.
-fn patch_record(mut record: Record) -> Result<Record> {
-    if record.id == 2737 {
-        ensure!(record.root_ntws.unwrap() == "ب.ي.ر");
-        record.root_ntws = Some("ب.ي.ر.و".to_string());
+fn patch_record(mut record: Record) -> Result<Option<Record>> {
+    match record.id {
+        2737 => {
+            ensure!(record.root_ntws.unwrap() == "ب.ي.ر");
+            record.root_ntws = Some("ب.ي.ر.و".to_string());
+        }
+
+        // Duplicates of 29603, 29605, 29612 but with different orders of the fatah and shadda in the
+        // lemma.
+        29598 | 29607 | 29614 => {
+            ensure!(record.lemma_bw.unwrap() == "laq~aT");
+            return Ok(None);
+        }
+        _ => {}
     }
 
     match record.analysis.as_str() {
@@ -527,5 +532,5 @@ fn patch_record(mut record: Record) -> Result<Record> {
         _ => {}
     }
 
-    Ok(record)
+    Ok(Some(record))
 }
