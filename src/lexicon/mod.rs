@@ -99,11 +99,9 @@ impl Definition {
         match query {
             query::Leaf::Term { term } => {
                 term.matches(&self.form)
-                    || term.matches(&self.form_bw)
-                    || term.matches(&self.caphipp)
-                    || term.matches(&self.analysis)
                     || self.glosses.iter().any(|gloss| term.matches(gloss))
                     || term.matches(&self.gloss_msa)
+                    || term.matches(&self.notes)
             }
             query::Leaf::Qualified { qualifier, term } => match qualifier {
                 query::Qualifier::Term => {
@@ -209,7 +207,7 @@ pub(crate) struct Phrase {
     pub gloss_msa: Str,
 
     pub example_usage: String,
-    pub notes: String,
+    pub notes: Str,
 }
 
 impl Phrase {
@@ -217,10 +215,9 @@ impl Phrase {
         match query {
             query::Leaf::Term { term } => {
                 term.matches(&self.form)
-                    || term.matches(&self.form_bw)
-                    || term.matches(&self.caphipp)
                     || self.glosses.iter().any(|gloss| term.matches(gloss))
                     || term.matches(&self.gloss_msa)
+                    || term.matches(&self.notes)
             }
             query::Leaf::Qualified { qualifier, term } => match qualifier {
                 query::Qualifier::Term => {
@@ -272,7 +269,7 @@ impl TryFrom<Record> for Phrase {
             glosses,
             gloss_msa: gloss_msa.into(),
             example_usage,
-            notes,
+            notes: notes.into(),
         })
     }
 }
@@ -317,7 +314,6 @@ impl Lemma {
                     || term.matches(&self.root_1)
                     || term.matches(&self.lemma)
                     || term.matches(&self.lemma_search)
-                    || term.matches(&self.lemma_bw)
             }
             query::Leaf::Qualified { qualifier, term } => match qualifier {
                 query::Qualifier::Term => {
