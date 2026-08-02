@@ -7,9 +7,9 @@ use std::{
 use anyhow::{Context as _, Result, bail, ensure};
 
 use crate::{
-    Str,
     lexicon::pos::PartOfSpeech,
     query,
+    string::Str,
     tf_idf::{DocumentTermFrequencies, InverseDocumentFrequencies, ToTerms},
 };
 

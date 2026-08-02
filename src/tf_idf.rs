@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 
-use crate::{NormalizedString, Str, lexicon::Lemma};
+use crate::{
+    lexicon::Lemma,
+    string::{NormalizedString, Str},
+};
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub(crate) struct Term(pub [char; 3]);

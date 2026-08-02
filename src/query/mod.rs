@@ -1,8 +1,8 @@
 use anyhow::{Result, bail, ensure};
 
 use crate::{
-    NormalizedString, Str,
     query::lexer::{Lexer, Token},
+    string::{NormalizedString, Str},
     tf_idf,
 };
 
@@ -18,10 +18,10 @@ pub(crate) struct Term {
 impl Term {
     pub(crate) fn matches(&self, value: &Str) -> bool {
         match (self.anchor_start, self.anchor_end) {
-            (false, false) => value.normalized.contains(self.term.0.as_str()),
-            (true, false) => value.normalized.starts_with(self.term.0.as_str()),
+            (false, false) => value.normalized.contains(self.term.as_str()),
+            (true, false) => value.normalized.starts_with(self.term.as_str()),
             (true, true) => value.normalized == self.term,
-            (false, true) => value.normalized.ends_with(self.term.0.as_str()),
+            (false, true) => value.normalized.ends_with(self.term.as_str()),
         }
     }
 }
