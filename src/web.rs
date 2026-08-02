@@ -151,11 +151,7 @@ async fn single_result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
         .unwrap();
 
     view! {
-        <li
-            id=(("lemma-", lemma.lowest_id()))
-            class="lemma"
-            onclick=(("location.href = \"#lemma-", lemma.lowest_id(), '"'))
-        >
+        <li id=(("lemma-", lemma.lowest_id())) class="lemma">
             <span lang="ar">
                 "("
                 (&*lemma.root)
