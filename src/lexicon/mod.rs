@@ -10,10 +10,11 @@ use compact_str::{CompactString, ToCompactString};
 use crate::{
     lexicon::pos::PartOfSpeech,
     query::{self, MatchTerm as _},
-    string::{NormalizedString, SearchableString},
+    string::{InternedString, NormalizedString, SearchableString},
     tf_idf::{DocumentTermFrequencies, InverseDocumentFrequencies, ToTerms},
 };
 
+mod phonetics;
 pub(crate) mod pos;
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -67,6 +68,31 @@ impl Deref for Root {
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct Transcription {
+    pub caphipp: NormalizedString,
+    pub bw: NormalizedString,
+    /// List of IPA transcriptions for a given word.
+    ///
+    /// These are constructed from the CAPHI++ field.
+    ///
+    /// These intentionally use raw interned strings rather than `NormalizedString` because that
+    /// type performs NKFC normalization which decomposes IPA modifier characters into the
+    /// non-modifier equivalent, which renders incorrectly.
+    pub ipa: Vec<InternedString>,
+}
+
+impl Transcription {
+    fn new<T: AsRef<str>>(caphipp: T, bw: T) -> Result<Self> {
+        Ok(Self {
+            caphipp: NormalizedString::interned(caphipp.as_ref().chars()),
+            bw: NormalizedString::interned(bw.as_ref().chars()),
+            ipa: phonetics::caphipp_to_ipa(caphipp.as_ref())
+                .context("Failed to convert CAPHI++ to IPA")?,
+        })
+    }
+}
+
 #[allow(unused)]
 #[derive(Debug)]
 pub(crate) struct Custom {
@@ -87,8 +113,7 @@ pub(crate) struct Definition {
     pub id: u32,
 
     pub form: NormalizedString,
-    pub form_bw: NormalizedString,
-    pub caphipp: NormalizedString,
+    pub transcription: Transcription,
     pub analysis: SearchableString,
 
     pub glosses: Vec<SearchableString>,
@@ -105,14 +130,14 @@ impl Definition {
         match query {
             query::Leaf::Term { term } => {
                 term.matches(&self.form)
-                    || term.matches(&self.form_bw)
+                    || term.matches(&self.transcription.bw)
                     || self.glosses.iter().any(|gloss| term.matches(gloss))
             }
             query::Leaf::Qualified { qualifier, term } => match qualifier {
                 query::Qualifier::Lemma => {
                     term.matches(&self.form)
-                        || term.matches(&self.form_bw)
-                        || term.matches(&self.caphipp)
+                        || term.matches(&self.transcription.bw)
+                        || term.matches(&self.transcription.caphipp)
                 }
                 query::Qualifier::Analysis => term.matches(&self.analysis),
                 query::Qualifier::Gloss => self.glosses.iter().any(|gloss| term.matches(gloss)),
@@ -185,8 +210,8 @@ impl TryFrom<Record> for Definition {
         Ok(Self {
             id,
             form: NormalizedString::interned(form.chars()),
-            form_bw: NormalizedString::interned(form_bw.chars()),
-            caphipp: NormalizedString::interned(caphipp.chars()),
+            transcription: Transcription::new(caphipp, form_bw)
+                .with_context(|| format!("Failed to parse transcriptions of record {id}"))?,
             analysis: SearchableString::interned(analysis.chars()),
             glosses,
             gloss_msa: NormalizedString::interned(gloss_msa.chars()),
@@ -204,8 +229,7 @@ pub(crate) struct Phrase {
     pub id: u32,
 
     pub form: NormalizedString,
-    pub form_bw: NormalizedString,
-    pub caphipp: NormalizedString,
+    pub transcription: Transcription,
 
     pub glosses: Vec<SearchableString>,
     pub gloss_msa: NormalizedString,
@@ -219,14 +243,14 @@ impl Phrase {
         match query {
             query::Leaf::Term { term } => {
                 term.matches(&self.form)
-                    || term.matches(&self.form_bw)
+                    || term.matches(&self.transcription.bw)
                     || self.glosses.iter().any(|gloss| term.matches(gloss))
             }
             query::Leaf::Qualified { qualifier, term } => match qualifier {
                 query::Qualifier::Lemma => {
                     term.matches(&self.form)
-                        || term.matches(&self.form_bw)
-                        || term.matches(&self.caphipp)
+                        || term.matches(&self.transcription.bw)
+                        || term.matches(&self.transcription.caphipp)
                 }
                 query::Qualifier::Analysis => false,
                 query::Qualifier::Gloss => self.glosses.iter().any(|gloss| term.matches(gloss)),
@@ -266,8 +290,8 @@ impl TryFrom<Record> for Phrase {
         Ok(Self {
             id,
             form: NormalizedString::interned(form.chars()),
-            form_bw: NormalizedString::interned(form_bw.chars()),
-            caphipp: NormalizedString::interned(caphipp.chars()),
+            transcription: Transcription::new(caphipp, form_bw)
+                .with_context(|| format!("Failed to parse transcriptions of record {id}"))?,
             glosses,
             gloss_msa: NormalizedString::interned(gloss_msa.chars()),
             example_usage: NormalizedString::interned(example_usage.chars()),
@@ -513,6 +537,24 @@ fn patch_record(mut record: Record) -> Result<Option<Record>> {
             ensure!(record.lemma_bw.unwrap() == "laq~aT");
             return Ok(None);
         }
+
+        // Invalid CAPHI++, II instead of || for alternate phonemes.
+        15942 | 16642 | 16643 | 16644 | 16658 | 16659 | 16660 | 16661 | 17007 | 17008 | 25633
+        | 25634 | 25716 | 26050 | 26054 | 26264 => {
+            ensure!(record.caphipp.contains("II"));
+            record.caphipp = record.caphipp.replace("II", "||").into();
+        }
+        // Same but in the gloss field.
+        18000 => {
+            ensure!(record.gloss.contains("II"));
+            record.gloss = record.gloss.replace("II", "||").into();
+        }
+        // Same but in the notes field.
+        25861 => {
+            ensure!(record.notes.contains("II"));
+            record.notes = record.notes.replace("II", "||").into();
+        }
+
         _ => {}
     }
 

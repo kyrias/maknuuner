@@ -39,7 +39,7 @@ impl ToTerms for Lemma {
         let definitions = self.definitions.iter().flat_map(|def| {
             def.form
                 .to_terms()
-                .chain(def.form_bw.to_terms())
+                .chain(def.transcription.bw.to_terms())
                 .chain(def.glosses.iter().flat_map(ToTerms::to_terms))
         });
 

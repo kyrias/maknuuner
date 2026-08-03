@@ -31,7 +31,7 @@ pub(super) async fn start(lexicon: Lexicon) -> anyhow::Result<()> {
 async fn root_layout(slot: Result) -> Result {
     view! {
         <!DOCTYPE html>
-        <html>
+        <html lang="en">
             <head>
                 topcoat::dev::script()
                 topcoat::runtime::script()
@@ -112,6 +112,20 @@ async fn render_definition(definition: &Definition, render_glosses: bool) -> Res
                     (feat)
                 </span>
             }
+
+            <span>
+                " ("
+                let len = definition.transcription.ipa.len();
+                for (idx, ipa) in definition.transcription.ipa.iter().enumerate() {
+                    "/"
+                    (&**ipa)
+                    "/"
+                    if (idx + 1) < len {
+                        ","
+                    }
+                }
+                ")"
+            </span>
 
             if render_glosses {
                 <ol>

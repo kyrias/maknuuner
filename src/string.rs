@@ -7,13 +7,35 @@ use unicode_normalization::UnicodeNormalization;
 
 static INTERNER_POOL: GlobalPool<String> = GlobalPool::new();
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct InternedString(GlobalString);
+
+/// Interned string type.
+///
+/// This type performs no normalization or case-folding.  Outside of the `string` module it should
+/// **only** be used by the `Transcription` struct which needs it as a result of NKFC normalization
+/// screwing up IPA modifier characters.
+impl InternedString {
+    pub(crate) fn new<T: AsRef<str>>(string: T) -> Self {
+        Self(INTERNER_POOL.get(string.as_ref()))
+    }
+}
+
+impl Deref for InternedString {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// NKFC normalized string type.
 ///
 /// Every string in the application should use either this string type or one built on top of it to
 /// ensure that we normalize every string passing through it.
 #[derive(Clone, Debug, Eq)]
 pub(crate) enum NormalizedString {
-    Interned(GlobalString),
+    Interned(InternedString),
     Allocated(CompactString),
 }
 
@@ -23,7 +45,7 @@ impl NormalizedString {
     }
 
     pub(crate) fn interned<T: IntoIterator<Item = char>>(string: T) -> Self {
-        Self::Interned(INTERNER_POOL.get(NormalizedString::normalize(string)))
+        Self::Interned(InternedString::new(NormalizedString::normalize(string)))
     }
 
     pub(crate) fn allocated<T: IntoIterator<Item = char>>(string: T) -> Self {
