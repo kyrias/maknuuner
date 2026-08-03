@@ -121,7 +121,7 @@ async fn render_definition(definition: &Definition, render_glosses: bool) -> Res
                     (&**ipa)
                     "/"
                     if (idx + 1) < len {
-                        ","
+                        ", "
                     }
                 }
                 ")"
