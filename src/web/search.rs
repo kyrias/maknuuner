@@ -113,7 +113,7 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
     };
 
     view! {
-        <div id=(("lemma-", lemma.lowest_id())) class="result">
+        <div id=(("lemma-", lemma.lowest_id)) class="result">
             <h3 lang="ar-PS">
                 <span class="root" title=(root_title)>
                     "("
@@ -122,7 +122,7 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
                 </span>
                 <span class="lemma" title="Lemma">(&lemma.lemma)</span>
 
-                <a href=(("#lemma-", lemma.lowest_id()))>
+                <a href=(("#lemma-", lemma.lowest_id))>
                     (Unescaped::new_unchecked("&sect;"))
                 </a>
             </h3>

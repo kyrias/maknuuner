@@ -331,6 +331,8 @@ impl TryFrom<Record> for Phrase {
 
 #[derive(Debug)]
 pub(crate) struct Lemma {
+    pub lowest_id: u32,
+
     pub root: Root,
     pub root_1: SearchableString,
 
@@ -343,15 +345,6 @@ pub(crate) struct Lemma {
 }
 
 impl Lemma {
-    pub(crate) fn lowest_id(&self) -> u32 {
-        self.definitions
-            .iter()
-            .map(|def| def.id)
-            .chain(self.phrases.iter().map(|ph| ph.id))
-            .min()
-            .unwrap_or(u32::MAX)
-    }
-
     /// Check whether a query matches this lemma.
     fn matches(&self, lexicon: &Lexicon, query: &query::Query) -> (bool, f64) {
         match query {
@@ -418,6 +411,14 @@ impl Lemma {
         self.definitions.extend(lemma.definitions);
         self.phrases.extend(lemma.phrases);
 
+        self.lowest_id = self
+            .definitions
+            .iter()
+            .map(|def| def.id)
+            .chain(self.phrases.iter().map(|ph| ph.id))
+            .min()
+            .unwrap();
+
         Ok(())
     }
 }
@@ -434,6 +435,7 @@ impl TryFrom<Record> for Lemma {
         let lemma_bw = record.lemma_bw.take().unwrap();
 
         let mut lemma = Lemma {
+            lowest_id: record.id,
             root: Root::new(root, root_ntws),
             root_1: SearchableString::case_folded(root_1.chars()),
             lemma: SearchableString::case_folded(lemma.chars()),
