@@ -6,7 +6,7 @@ use topcoat::{
     context::{Cx, app_context},
     router::{page, query_params},
     runtime::{Event, shard},
-    view::{NodeViewParts, Unescaped, component, view},
+    view::{Unescaped, View, component, view},
 };
 
 use crate::{
@@ -107,12 +107,12 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
     view! {
         <div id=(("lemma-", lemma.lowest_id())) class="result">
             <h3 lang="ar-PS">
-                <span class="root">
+                <span class="root" title="Root">
                     "("
                     (&*lemma.root)
                     ")"
                 </span>
-                <span class="lemma">(&lemma.lemma)</span>
+                <span class="lemma" title="Lemma">(&lemma.lemma)</span>
 
                 <a href=(("#lemma-", lemma.lowest_id()))>
                     (Unescaped::new_unchecked("&sect;"))
@@ -169,9 +169,7 @@ async fn single_definition(definition: &Definition, glosses: &[SearchableString]
     view! {
         <li id=(("def-", definition.id)) class="definition">
             <span lang="ar-PS">(&definition.form)</span>
-            if let Some(pos) = definition.custom.pos {
-                <span class="pos">(pos)</span>
-            }
+            part_of_speech(pos: definition.custom.pos)
 
             common_fields(transcription: &definition.transcription, glosses: glosses)
         </li>
@@ -218,56 +216,67 @@ async fn common_fields(transcription: &Transcription, glosses: &[SearchableStrin
     }
 }
 
-impl NodeViewParts for PartOfSpeech {
-    fn into_view_parts(self, _cx: &Cx, parts: &mut topcoat::view::PartsWriter<'_>) {
-        use crate::lexicon::pos::{
-            noun::{Noun, NounFeature},
-            verb::{Verb, VerbFeature},
-        };
+#[component]
+async fn part_of_speech(pos: Option<PartOfSpeech>) -> Result {
+    let Some(pos) = pos else {
+        return Ok(View::empty());
+    };
 
-        fn noun_feature(nf: NounFeature) -> &'static str {
-            match nf {
-                NounFeature::Singular => "[sg.]",
-                NounFeature::MasculineSingular => "[m.sg.]",
-                NounFeature::FeminineSingular => "[f.pl.]",
-                NounFeature::Dual => "[d.]",
-                NounFeature::Plural => "[pl.]",
-                NounFeature::MasculinePlural => "[m.pl.]",
-                NounFeature::FemininePlural => "[f.pl.]",
-            }
+    use crate::lexicon::pos::{
+        noun::{Noun, NounFeature},
+        verb::{Verb, VerbFeature},
+    };
+
+    fn noun_feature(nf: NounFeature) -> (&'static str, &'static str) {
+        match nf {
+            NounFeature::Singular => ("[sg.]", "Singular"),
+            NounFeature::MasculineSingular => ("[m.sg.]", "Masculine singular"),
+            NounFeature::FeminineSingular => ("[f.pl.]", "Feminine plural"),
+            NounFeature::Dual => ("[d.]", "Dual"),
+            NounFeature::Plural => ("[pl.]", "Plural"),
+            NounFeature::MasculinePlural => ("[m.pl.]", "Masculine plural"),
+            NounFeature::FemininePlural => ("[f.pl.]", "Feminine plural"),
         }
+    }
 
-        fn verb_feature(vf: VerbFeature) -> &'static str {
-            match vf {
-                VerbFeature::Perfective => "[p.]",
-                VerbFeature::Command => "[c.]",
-                VerbFeature::Imperfective => "[i.]",
-            }
+    fn verb_feature(vf: VerbFeature) -> (&'static str, &'static str) {
+        match vf {
+            VerbFeature::Perfective => ("[p.]", "Perfective"),
+            VerbFeature::Command => ("[c.]", "Command"),
+            VerbFeature::Imperfective => ("[i.]", "Imperfective"),
         }
+    }
 
-        let (pos, feature) = match self {
-            PartOfSpeech::Noun(noun) => {
-                let (kind, nf) = match noun {
-                    Noun::Plain(nf) => ("Noun", nf),
-                    Noun::Active(nf) => ("Noun (active participle deverbal)", nf),
-                    Noun::Passive(nf) => ("Noun (passive participle deverbal)", nf),
-                    Noun::Proper(nf) => ("Noun (proper)", nf),
-                    Noun::Number(nf) => ("Noun (number)", nf),
-                    Noun::Quantifier(nf) => ("Noun (quantifier)", nf),
-                };
-                (kind, nf.map(noun_feature))
-            }
-            PartOfSpeech::Verb(verb) => match verb {
-                Verb::Plain(vf) => ("Verb", Some(verb_feature(vf))),
-                Verb::Nominal => ("Verb (nominal)", None),
-                Verb::Pseudo => ("Verb (pseudo)", None),
-            },
-        };
-
-        parts.push_str(pos);
-        if let Some(feature) = feature {
-            parts.push_char(' ');
-            parts.push_str(feature);
+    let (pos, feature) = match pos {
+        PartOfSpeech::Noun(noun) => {
+            let (kind, nf) = match noun {
+                Noun::Plain(nf) => ("Noun", nf),
+                Noun::Active(nf) => ("Noun (active participle deverbal)", nf),
+                Noun::Passive(nf) => ("Noun (passive participle deverbal)", nf),
+                Noun::Proper(nf) => ("Noun (proper)", nf),
+                Noun::Number(nf) => ("Noun (number)", nf),
+                Noun::Quantifier(nf) => ("Noun (quantifier)", nf),
+            };
+            (kind, nf.map(noun_feature))
         }
+        PartOfSpeech::Verb(verb) => match verb {
+            Verb::Plain(vf) => ("Verb", Some(verb_feature(vf))),
+            Verb::Nominal => ("Verb (nominal)", None),
+            Verb::Pseudo => ("Verb (pseudo)", None),
+        },
+    };
+
+    let feature = if let Some((feature, tooltip)) = feature {
+        view! { <span title=(tooltip)>(feature)</span> }
+    } else {
+        view! {}
+    };
+
+    view! {
+        <span class="pos">
+            (pos)
+            " "
+            (feature?)
+        </span>
     }
 }
