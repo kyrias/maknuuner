@@ -1,18 +1,42 @@
-use std::{cmp::Ordering, time::Instant};
-
 use anyhow::Context as _;
 use topcoat::{
     Result,
-    asset::{AssetBundle, RouterBuilderAssetExt as _},
-    context::{Cx, app_context},
-    router::{Router, RouterBuilderDiscoverExt as _, error::redirect, layout, page, query_params},
-    runtime::{Event, shard},
-    view::{component, view},
+    asset::{AssetBundle, RouterBuilderAssetExt as _, asset},
+    font::{Font, font},
+    router::{Router, RouterBuilderDiscoverExt as _, error::redirect, layout, page},
+    view::view,
 };
 
-use crate::{
-    lexicon::{Definition, Lemma, Lexicon, Phrase, pos::PartOfSpeech},
-    query::Query,
+use crate::lexicon::Lexicon;
+
+mod search;
+
+const AMIRI: Font = font! {
+    "Amiri",
+    @font-face {
+        src: url(asset!("assets/Amiri-1.003/Amiri-Regular.ttf")) format("truetype");
+        font-style: normal;
+        font-weight: normal;
+        font-display: swap;
+    }
+    @font-face {
+        src: url(asset!("assets/Amiri-1.003/Amiri-Italic.ttf")) format("truetype");
+        font-style: italic;
+        font-weight: normal;
+        font-display: swap;
+    }
+    @font-face {
+        src: url(asset!("assets/Amiri-1.003/Amiri-Bold.ttf")) format("truetype");
+        font-style: normal;
+        font-weight: bold;
+        font-display: swap;
+    }
+    @font-face {
+        src: url(asset!("assets/Amiri-1.003/Amiri-BoldItalic.ttf")) format("truetype");
+        font-style: italic;
+        font-weight: bold;
+        font-display: swap;
+    }
 };
 
 pub(super) async fn start(lexicon: Lexicon) -> anyhow::Result<()> {
@@ -33,14 +57,106 @@ async fn root_layout(slot: Result) -> Result {
         <!DOCTYPE html>
         <html lang="en">
             <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
                 topcoat::dev::script()
                 topcoat::runtime::script()
+                topcoat::font::link(font: AMIRI)
+                <style>
+                    "
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; padding: 0; }
+input, button, textarea, select {
+  font: inherit;
+}
+
+:root {
+    font-family: "
+                    (AMIRI.family())
+                    ", serif;
+    font-size: 14pt;
+    line-height: 1.85;
+    text-wrap: balance;
+}
+
+:lang(ar) {
+    font-size: 140%;
+}
+
+:lang(en) {
+}
+
+html {
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+}
+
+input {
+    padding-left: 0.3em;
+    padding-right: 0.3em;
+}
+
+ol {
+    padding-left: 2em;
+}
+"
+                    (topcoat::view::Unescaped::new_unchecked(
+                        "
+
+input.search {
+    margin-top: 0.5em;
+    width: 20em;
+}
+
+.results {
+    margin-top: 1em;
+
+    & .inner {
+        padding-left: 0.75em;
+    }
+}
+
+.result {
+    &:not(:first-child) {
+        margin-top: 0.75em;
+    }
+
+    h3 {
+        & .root {
+            font-size: 0.9em;
+        }
+        & .lemma {
+            margin-left: 0.5em;
+        }
+
+        & a {
+            margin-left: 0.75em;
+
+            font-size: 1em;
+            color: oklch(0.5999 0 0 / 40%);
+            transition: color 0.2s;
+
+            text-decoration: none;
+        }
+        &:hover a {
+                color: oklch(0.469 0.224 321.186);
+        };
+    }
+
+    .pos {
+        margin-left: 0.75em;
+    }
+    .transcription {
+        margin-left: 0.75em;
+        color: oklch(0.5 0 0);
+    }
+}
+",
+                    ))
+                </style>
             </head>
             <body>
-                <nav>
-                    <a href="/">"Home"</a>
-                    <a href="/search">"Search"</a>
-                </nav>
+                <header><h1>"Maknuuner"</h1></header>
                 (slot?)
             </body>
         </html>
@@ -50,241 +166,4 @@ async fn root_layout(slot: Result) -> Result {
 #[page("/")]
 async fn home() -> Result {
     Err(redirect("/search").into())
-}
-
-fn render_pos(pos: PartOfSpeech) -> (&'static str, Option<&'static str>) {
-    use crate::lexicon::pos::{
-        noun::{Noun, NounFeature},
-        verb::{Verb, VerbFeature},
-    };
-
-    fn fmt_noun_feature(nf: NounFeature) -> &'static str {
-        match nf {
-            NounFeature::Singular => "[sg.]",
-            NounFeature::MasculineSingular => "[m.sg.]",
-            NounFeature::FeminineSingular => "[f.pl.]",
-            NounFeature::Dual => "[d.]",
-            NounFeature::Plural => "[pl.]",
-            NounFeature::MasculinePlural => "[m.pl.]",
-            NounFeature::FemininePlural => "[f.pl.]",
-        }
-    }
-
-    fn fmt_verb_feature(vf: VerbFeature) -> &'static str {
-        match vf {
-            VerbFeature::Perfective => "[p.]",
-            VerbFeature::Command => "[c.]",
-            VerbFeature::Imperfective => "[i.]",
-        }
-    }
-
-    match pos {
-        PartOfSpeech::Noun(noun) => {
-            let (kind, nf) = match noun {
-                Noun::Plain(nf) => ("Noun", nf),
-                Noun::Active(nf) => ("Noun (active participle deverbal)", nf),
-                Noun::Passive(nf) => ("Noun (passive participle deverbal)", nf),
-                Noun::Proper(nf) => ("Noun (proper)", nf),
-                Noun::Number(nf) => ("Noun (number)", nf),
-                Noun::Quantifier(nf) => ("Noun (quantifier)", nf),
-            };
-            (kind, nf.map(fmt_noun_feature))
-        }
-        PartOfSpeech::Verb(verb) => match verb {
-            Verb::Plain(vf) => ("Verb", Some(fmt_verb_feature(vf))),
-            Verb::Nominal => ("Verb (nominal)", None),
-            Verb::Pseudo => ("Verb (pseudo)", None),
-        },
-    }
-}
-
-#[component]
-async fn render_definition(definition: &Definition, render_glosses: bool) -> Result {
-    view! {
-        <li id=(("def-", definition.id)) class="definition">
-            <span lang="ar">(&definition.form)</span>
-            if let Some(pos) = &definition.custom.pos {
-                <span>
-                    let (pos, feat) = render_pos(*pos);
-                    " "
-                    (pos)
-                    " "
-                    (feat)
-                </span>
-            }
-
-            <span>
-                " ("
-                let len = definition.transcription.ipa.len();
-                for (idx, ipa) in definition.transcription.ipa.iter().enumerate() {
-                    "/"
-                    (&**ipa)
-                    "/"
-                    if (idx + 1) < len {
-                        ", "
-                    }
-                }
-                ")"
-            </span>
-
-            if render_glosses {
-                <ol>
-                    for gloss in &definition.glosses {
-                        <li>(gloss)</li>
-                    }
-                </ol>
-            }
-        </li>
-    }
-}
-
-#[component]
-async fn render_phrase(phrase: &Phrase) -> Result {
-    view! {
-        <li id=(("ph-", phrase.id)) class="phrase">
-            <span lang="ar">(&phrase.form)</span>
-            <ol>
-                for gloss in &phrase.glosses {
-                    <li>(gloss)</li>
-                }
-            </ol>
-        </li>
-    }
-}
-
-#[component]
-async fn single_result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
-    // State used to only render the list of glosses if they differ from the previously rendered
-    // definition.
-    let mut first_entry = true;
-    let mut glosses = lemma
-        .definitions
-        .first()
-        .map(|def| &def.glosses)
-        .or_else(|| lemma.phrases.first().map(|ph| &ph.glosses))
-        .unwrap();
-
-    view! {
-        <li id=(("lemma-", lemma.lowest_id())) class="lemma">
-            <span lang="ar">
-                "("
-                (&*lemma.root)
-                ") "
-                (&lemma.lemma)
-            </span>
-
-            if !lemma.definitions.is_empty() {
-                <div>
-                    <p>"Definitions"</p>
-                    <ol>
-                        for entry in lemma.definitions.iter() {
-                            let render_glosses = first_entry || glosses != &entry.glosses;
-                            let _ = glosses = &entry.glosses;
-                            let _ = first_entry = false;
-                            render_definition(
-                                definition: entry,
-                                render_glosses: render_glosses
-                            )
-                        }
-                    </ol>
-                </div>
-            }
-
-            if !lemma.phrases.is_empty() {
-                <div>
-                    <p>"Phrases"</p>
-                    <ol>
-                        for phrase in &lemma.phrases {
-                            render_phrase(phrase: phrase)
-                        }
-                    </ol>
-                </div>
-            }
-
-            if raw {
-                <div>
-                    <p>
-                        "Result has rank: "
-                        (format!("{rank:0.5}"))
-                    </p>
-                    <pre>(format!("{lemma:#?}"))</pre>
-                </div>
-            }
-        </li>
-    }
-}
-
-#[shard]
-async fn search_results(cx: &Cx, query: String, raw: bool) -> Result {
-    let query = Query::parse(&query).context("Failed to parse query")?;
-
-    let lexicon: &Lexicon = app_context(cx);
-
-    let instant = Instant::now();
-    let mut results: Vec<_> = lexicon.search(&query).collect();
-    let elapsed = instant.elapsed();
-
-    fn comp_f64(a: &f64, b: &f64) -> Ordering {
-        if a < b {
-            return Ordering::Less;
-        } else if a > b {
-            return Ordering::Greater;
-        }
-        Ordering::Equal
-    }
-    results.sort_by(|(_, a), (_, b)| comp_f64(a, b).reverse());
-
-    let results = results.into_iter().take(100);
-
-    view! {
-        <ol>
-            for (result, rank) in results {
-                single_result(lemma: result, rank: rank, raw: raw)
-            }
-        </ol>
-        if raw {
-            <div>
-                "The following query took "
-                (elapsed.as_secs_f64())
-                "s to execute:"
-                <pre>(format!("{query:#?}"))</pre>
-            </div>
-        }
-    }
-}
-
-#[query_params(error = bad_request)]
-struct SearchQuery {
-    query: Option<String>,
-    raw: Option<bool>,
-}
-
-#[page("/search")]
-async fn search(cx: &Cx) -> Result {
-    let params = query_params::<SearchQuery>(cx)?;
-
-    let query = params
-        .query
-        .clone()
-        .unwrap_or_else(|| r#"gloss:^money analysis:"^NOUN:P$""#.to_string());
-    let raw = params.raw.unwrap_or(false);
-
-    view! {
-        signal query = query;
-
-        <input
-            :value=$(query.get())
-            @input=$(|e: Event| {
-                let value = e.target.value;
-                query.set(value);
-                raw!(
-                    r#"window.history.replaceState({}, '',
-                    '?' + new URLSearchParams({ "query": ${value}, "raw": ${raw} }
-                ).toString())"#
-                );
-            })
-        >
-
-        search_results(query: $(query.get()), raw: $(raw))
-    }
 }

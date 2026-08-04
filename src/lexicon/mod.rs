@@ -50,10 +50,14 @@ pub(crate) enum Root {
 
 impl Root {
     fn new(root: CompactString, root_ntws: CompactString) -> Self {
+        let middledots = |c| if c == '.' { '·' } else { c };
+
         if root == "NTWS" {
-            Self::NonTemplaticWordStem(NormalizedString::interned(root_ntws.chars()))
+            Self::NonTemplaticWordStem(NormalizedString::interned(
+                root_ntws.chars().map(middledots),
+            ))
         } else {
-            Self::Root(NormalizedString::interned(root.chars()))
+            Self::Root(NormalizedString::interned(root.chars().map(middledots)))
         }
     }
 }
