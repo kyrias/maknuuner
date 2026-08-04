@@ -3,16 +3,14 @@ use std::fmt::{Debug, Display};
 use anyhow::{Result, bail, ensure};
 
 use crate::{
-    lexicon::Lexicon,
     query::lexer::{Lexer, Token},
-    string::{
-        CaseFoldedNfkcNormalizedString, NfkcNormalizedString, NonFoldedNfkcNormalizedString,
-        SearchableString,
-    },
+    string::{CaseFoldedNfkcNormalizedString, NonFoldedNfkcNormalizedString},
 };
 
-mod impls;
+pub(crate) use matching::Matches;
+
 mod lexer;
+mod matching;
 
 pub(crate) struct TermString {
     pub(crate) non_folded: NonFoldedNfkcNormalizedString,
@@ -57,54 +55,6 @@ impl Debug for Term {
                 if self.anchor_end { "$" } else { "" }
             ))
             .finish()
-    }
-}
-
-pub(crate) trait Matches<T>
-where
-    T: ?Sized,
-{
-    type Result;
-
-    fn matches(&self, lexicon: &Lexicon, value: &T) -> Self::Result;
-}
-
-impl Matches<NonFoldedNfkcNormalizedString> for Term {
-    type Result = bool;
-
-    fn matches(&self, _lexicon: &Lexicon, string: &NonFoldedNfkcNormalizedString) -> bool {
-        let string = string.as_str();
-        match (self.anchor_start, self.anchor_end) {
-            (false, false) => string.contains(self.term.non_folded.as_str()),
-            (true, false) => string.starts_with(self.term.non_folded.as_str()),
-            (true, true) => string == self.term.non_folded.as_str(),
-            (false, true) => string.ends_with(self.term.non_folded.as_str()),
-        }
-    }
-}
-
-impl Matches<CaseFoldedNfkcNormalizedString> for Term {
-    type Result = bool;
-
-    fn matches(&self, _lexicon: &Lexicon, string: &CaseFoldedNfkcNormalizedString) -> bool {
-        let string = string.as_str();
-        match (self.anchor_start, self.anchor_end) {
-            (false, false) => string.contains(self.term.case_folded.as_str()),
-            (true, false) => string.starts_with(self.term.case_folded.as_str()),
-            (true, true) => string == self.term.case_folded.as_str(),
-            (false, true) => string.ends_with(self.term.case_folded.as_str()),
-        }
-    }
-}
-
-impl Matches<SearchableString> for Term {
-    type Result = bool;
-
-    fn matches(&self, lexicon: &Lexicon, value: &SearchableString) -> bool {
-        match &value.searchable {
-            NfkcNormalizedString::NonFolded(inner) => self.matches(lexicon, inner),
-            NfkcNormalizedString::CaseFolded(inner) => self.matches(lexicon, inner),
-        }
     }
 }
 

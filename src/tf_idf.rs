@@ -12,6 +12,10 @@ use crate::{
     },
 };
 
+pub(crate) use ranking::Rank;
+
+mod ranking;
+
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub(crate) struct Term(pub [char; 3]);
 

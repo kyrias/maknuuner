@@ -8,9 +8,9 @@ use compact_str::ToCompactString;
 
 use crate::{
     lexicon::lemma::DatasetEntry,
-    query::{self, Matches as _},
+    query::{self, Matches},
     string::{NonFoldedNfkcNormalizedString, SearchableString},
-    tf_idf::{DocumentTermFrequencies, InverseDocumentFrequencies, ToTerms},
+    tf_idf::{DocumentTermFrequencies, InverseDocumentFrequencies, Rank, ToTerms},
 };
 
 pub(crate) use lemma::{Definition, Lemma, Phrase, Root, Transcription};
@@ -96,10 +96,10 @@ impl Lexicon {
     }
 
     pub(crate) fn search(&self, query: &query::Query) -> impl Iterator<Item = (&Lemma, f64)> {
-        self.lemmas.iter().filter_map(|lemma| {
-            let (matches, tf_idf) = query.matches(self, lemma);
-            matches.then_some((lemma, tf_idf))
-        })
+        self.lemmas
+            .iter()
+            .filter(|lemma| query.matches(lemma))
+            .map(|lemma| (lemma, query.rank(self, lemma)))
     }
 
     /// Calculate the TF-IDF score of a query term against a lemma.
