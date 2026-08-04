@@ -89,10 +89,7 @@ impl ToTerms for Lemma {
 
 impl ToTerms for query::Term {
     fn to_terms(&self) -> impl Iterator<Item = Term> {
-        self.term
-            .non_folded
-            .to_terms()
-            .chain(self.term.case_folded.to_terms())
+        self.term.case_folded.to_terms()
     }
 }
 
