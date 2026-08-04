@@ -107,10 +107,15 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
         .or_else(|| lemma.phrases.first().map(|ph| &ph.glosses))
         .unwrap();
 
+    let root_title = match lemma.root {
+        crate::lexicon::Root::Root(_) => "Root",
+        crate::lexicon::Root::NonTemplaticWordStem(_) => "Root (non-templatic word stem)",
+    };
+
     view! {
         <div id=(("lemma-", lemma.lowest_id())) class="result">
             <h3 lang="ar-PS">
-                <span class="root" title="Root">
+                <span class="root" title=(root_title)>
                     "("
                     (&*lemma.root)
                     ")"
