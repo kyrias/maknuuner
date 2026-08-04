@@ -555,6 +555,12 @@ fn patch_record(mut record: Record) -> Result<Option<Record>> {
             record.notes = record.notes.replace("II", "||").into();
         }
 
+        // Apparent dupe of 31411 with "wealth (type)" instead of "wealth" as the gloss.
+        31411 => {
+            ensure!(record.lemma_bw.unwrap() == "maAl");
+            return Ok(None);
+        }
+
         _ => {}
     }
 
