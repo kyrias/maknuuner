@@ -7,11 +7,15 @@ use std::{
 use anyhow::{Context as _, Result, bail, ensure};
 use compact_str::{CompactString, ToCompactString};
 use itertools::Itertools;
+use smallvec::SmallVec;
 
 use crate::{
     lexicon::pos::PartOfSpeech,
     query::{self, MatchTerm as _},
-    string::{NonFoldedNfkcNormalizedString, SearchableString},
+    string::{
+        CaseFoldedNfkcNormalizedString, NfcNormalizedString, NonFoldedNfkcNormalizedString,
+        SearchableString,
+    },
     tf_idf::{DocumentTermFrequencies, InverseDocumentFrequencies, ToTerms},
 };
 
@@ -27,7 +31,7 @@ pub(crate) struct Record {
     // `Entry::from(Record)`.
     root: Option<CompactString>,
     root_ntws: Option<CompactString>,
-    root_1: Option<CompactString>,
+    root_1: char,
     lemma: Option<CompactString>,
     lemma_search: Option<CompactString>,
     lemma_bw: Option<CompactString>,
@@ -75,20 +79,20 @@ impl Deref for Root {
 
 #[derive(Debug)]
 pub(crate) struct Transcription {
-    pub caphipp: SearchableString,
-    pub bw: SearchableString,
+    pub caphipp: NonFoldedNfkcNormalizedString,
+    pub bw: NonFoldedNfkcNormalizedString,
     /// List of IPA transcriptions for a given word.
     ///
     /// These are automatically constructed from the CAPHI++ field.
-    pub ipa: Vec<SearchableString>,
+    pub ipa: SmallVec<[NfcNormalizedString; 1]>,
 }
 
 impl Transcription {
     fn new<T: AsRef<str>>(caphipp: T, bw: T) -> Result<Self> {
         Ok(Self {
             // Both of these have case-sensitive semantics.
-            caphipp: SearchableString::non_folded(caphipp.as_ref().chars()),
-            bw: SearchableString::non_folded(bw.as_ref().chars()),
+            caphipp: NonFoldedNfkcNormalizedString::interned(caphipp.as_ref().chars()),
+            bw: NonFoldedNfkcNormalizedString::interned(bw.as_ref().chars()),
 
             ipa: phonetics::caphipp_to_ipa(caphipp.as_ref())
                 .context("Failed to convert CAPHI++ to IPA")?,
@@ -117,13 +121,13 @@ pub(crate) struct Definition {
 
     pub form: SearchableString,
     pub transcription: Transcription,
-    pub analysis: SearchableString,
+    pub analysis: CaseFoldedNfkcNormalizedString,
 
-    pub glosses: Vec<SearchableString>,
-    pub gloss_msa: SearchableString,
+    pub glosses: SmallVec<[SearchableString; 1]>,
+    pub gloss_msa: NfcNormalizedString,
 
-    pub example_usage: SearchableString,
-    pub notes: SearchableString,
+    pub example_usage: NfcNormalizedString,
+    pub notes: NfcNormalizedString,
 
     pub custom: Custom,
 }
@@ -150,8 +154,8 @@ impl Definition {
 
     /// Parse a gloss string into a vector of glosses, removing the auto-generated entry suffix if
     /// present.
-    fn parse_glosses(gloss: &str) -> (Vec<SearchableString>, bool) {
-        let mut out = Vec::new();
+    fn parse_glosses(gloss: &str) -> (SmallVec<[SearchableString; 1]>, bool) {
+        let mut out = SmallVec::new();
 
         let stripped = gloss.strip_suffix("[auto]");
         let auto = stripped.is_some();
@@ -241,11 +245,11 @@ impl TryFrom<Record> for Definition {
             form: SearchableString::case_folded(form.chars()),
             transcription: Transcription::new(caphipp, form_bw)
                 .with_context(|| format!("Failed to parse transcriptions of record {id}"))?,
-            analysis: SearchableString::case_folded(analysis.chars()),
+            analysis: CaseFoldedNfkcNormalizedString::interned(analysis.chars()),
             glosses,
-            gloss_msa: SearchableString::case_folded(gloss_msa.chars()),
-            example_usage: SearchableString::case_folded(example_usage.chars()),
-            notes: SearchableString::case_folded(notes.chars()),
+            gloss_msa: NfcNormalizedString::interned(gloss_msa.chars()),
+            example_usage: NfcNormalizedString::interned(example_usage.chars()),
+            notes: NfcNormalizedString::interned(notes.chars()),
 
             custom: Custom { pos, auto },
         })
@@ -260,11 +264,11 @@ pub(crate) struct Phrase {
     pub form: SearchableString,
     pub transcription: Transcription,
 
-    pub glosses: Vec<SearchableString>,
-    pub gloss_msa: SearchableString,
+    pub glosses: SmallVec<[SearchableString; 1]>,
+    pub gloss_msa: NfcNormalizedString,
 
-    pub example_usage: SearchableString,
-    pub notes: SearchableString,
+    pub example_usage: NfcNormalizedString,
+    pub notes: NfcNormalizedString,
 }
 
 impl Phrase {
@@ -322,9 +326,9 @@ impl TryFrom<Record> for Phrase {
             transcription: Transcription::new(caphipp, form_bw)
                 .with_context(|| format!("Failed to parse transcriptions of record {id}"))?,
             glosses,
-            gloss_msa: SearchableString::case_folded(gloss_msa.chars()),
-            example_usage: SearchableString::case_folded(example_usage.chars()),
-            notes: SearchableString::case_folded(notes.chars()),
+            gloss_msa: NfcNormalizedString::interned(gloss_msa.chars()),
+            example_usage: NfcNormalizedString::interned(example_usage.chars()),
+            notes: NfcNormalizedString::interned(notes.chars()),
         })
     }
 }
@@ -334,14 +338,14 @@ pub(crate) struct Lemma {
     pub lowest_id: u32,
 
     pub root: Root,
-    pub root_1: SearchableString,
+    pub root_1: char,
 
     pub lemma: SearchableString,
     pub lemma_search: SearchableString,
     pub lemma_bw: SearchableString,
 
-    pub definitions: Vec<Definition>,
-    pub phrases: Vec<Phrase>,
+    pub definitions: SmallVec<[Definition; 1]>,
+    pub phrases: SmallVec<[Phrase; 1]>,
 }
 
 impl Lemma {
@@ -429,7 +433,7 @@ impl TryFrom<Record> for Lemma {
     fn try_from(mut record: Record) -> Result<Self> {
         let root = record.root.take().unwrap();
         let root_ntws = record.root_ntws.take().unwrap_or_default();
-        let root_1 = record.root_1.take().unwrap();
+        let root_1 = record.root_1;
         let lemma = record.lemma.take().unwrap();
         let lemma_search = record.lemma_search.take().unwrap();
         let lemma_bw = record.lemma_bw.take().unwrap();
@@ -437,7 +441,7 @@ impl TryFrom<Record> for Lemma {
         let mut lemma = Lemma {
             lowest_id: record.id,
             root: Root::new(root, root_ntws),
-            root_1: SearchableString::case_folded(root_1.chars()),
+            root_1,
             lemma: SearchableString::case_folded(lemma.chars()),
             lemma_search: SearchableString::case_folded(lemma_search.chars()),
             lemma_bw: SearchableString::non_folded(lemma_bw.chars()),
@@ -476,56 +480,58 @@ impl Lexicon {
             .from_reader(LEXICON.as_bytes());
 
         // Group the raw records by root, lemma, and part of speech.
-        //
-        // Also separate definitions from phrases.
-        let mut lemmas =
-            HashMap::<(Root, SearchableString, NonFoldedNfkcNormalizedString), Lemma>::new();
-        for record in reader.deserialize::<Record>() {
-            let record = record.context("Failed to deserialize lexicon record")?;
-            let Some(record) = patch_record(record).context("Failed to patch record")? else {
-                continue;
-            };
+        let lemmas = {
+            let mut lemmas =
+                HashMap::<(Root, SearchableString, NonFoldedNfkcNormalizedString), Lemma>::new();
+            for record in reader.deserialize::<Record>() {
+                let record = record.context("Failed to deserialize lexicon record")?;
+                let Some(record) = patch_record(record).context("Failed to patch record")? else {
+                    continue;
+                };
 
-            let pos = NonFoldedNfkcNormalizedString::interned(
-                record.analysis.split(':').next().unwrap().chars(),
-            );
+                let pos = NonFoldedNfkcNormalizedString::interned(
+                    record.analysis.split(':').next().unwrap().chars(),
+                );
 
-            let lemma = Lemma::try_from(record).context("Failed to convert record to lemma")?;
-            let lemma_id = lemma.lowest_id();
+                let lemma = Lemma::try_from(record).context("Failed to convert record to lemma")?;
+                let lemma_id = lemma.lowest_id;
 
-            match lemmas.entry((lemma.root.clone(), lemma.lemma.clone(), pos)) {
-                HMEntry::Occupied(occupied) => {
-                    occupied.into_mut().merge(lemma).with_context(|| {
-                        format!("Failed to merge new lemma into existing lemma for {lemma_id}",)
-                    })?;
-                }
-                HMEntry::Vacant(vacant) => {
-                    vacant.insert_entry(lemma);
-                }
-            };
-        }
+                match lemmas.entry((lemma.root.clone(), lemma.lemma.clone(), pos)) {
+                    HMEntry::Occupied(occupied) => {
+                        occupied.into_mut().merge(lemma).with_context(|| {
+                            format!("Failed to merge new lemma into existing lemma for {lemma_id}",)
+                        })?;
+                    }
+                    HMEntry::Vacant(vacant) => {
+                        vacant.insert_entry(lemma);
+                    }
+                };
+            }
 
-        // Sort definitions and phrases by part of speech and ID.
-        for lemma in lemmas.values_mut() {
-            lemma
-                .definitions
-                .sort_by_key(|entry| (entry.custom.pos, entry.id));
-            lemma.phrases.sort_by_key(|entry| entry.id);
-        }
+            // Sort definitions and phrases by part of speech and ID.
+            for lemma in lemmas.values_mut() {
+                lemma
+                    .definitions
+                    .sort_by_key(|entry| (entry.custom.pos, entry.id));
+                lemma.phrases.sort_by_key(|entry| entry.id);
+            }
 
-        // Sort lemmas by lowest ID among entries and phrases to have a consistent order.
-        //
-        // This is only necessary since we don't perform the ranking step of a proper search
-        // engine.
-        let mut lemmas = lemmas.into_values().collect::<Vec<_>>();
-        lemmas.sort_by_key(Lemma::lowest_id);
+            // Sort lemmas by lowest ID among entries and phrases to have a consistent order.
+            //
+            // This is only necessary since we don't perform the ranking step of a proper search
+            // engine.
+            let mut lemmas = lemmas.into_values().collect::<Vec<_>>();
+            lemmas.sort_by_key(|lemma| lemma.lowest_id);
+
+            lemmas
+        };
 
         let mut idf = InverseDocumentFrequencies::new();
         let mut term_freqs = HashMap::new();
         for lemma in &lemmas {
             let tfs = DocumentTermFrequencies::from(lemma);
             idf.add_document(&tfs);
-            term_freqs.insert(lemma.lowest_id(), tfs);
+            term_freqs.insert(lemma.lowest_id, tfs);
         }
 
         Ok(Self {
@@ -543,7 +549,7 @@ impl Lexicon {
     }
 
     fn tf_idf(&self, lemma: &Lemma, term: &query::Term) -> f64 {
-        let term_freqs = self.term_freqs.get(&lemma.lowest_id()).unwrap();
+        let term_freqs = self.term_freqs.get(&lemma.lowest_id).unwrap();
 
         term.to_terms()
             .map(|term| {

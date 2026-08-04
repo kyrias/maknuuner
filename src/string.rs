@@ -71,7 +71,7 @@ impl Ord for String {
 ///
 /// Note: NFC normalization is only useful for rendering, it is not appropriate for searching as
 /// semantically equivalent characters aren't necessarily always encoded in the same way.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NfcNormalizedString(String);
 
 impl NfcNormalizedString {
@@ -83,8 +83,22 @@ impl NfcNormalizedString {
         Self(String::interned(Self::normalize(string)))
     }
 
+    pub(crate) fn allocated<T: IntoIterator<Item = char>>(string: T) -> Self {
+        Self(String::allocated(Self::normalize(string)))
+    }
+
     pub(crate) fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+}
+
+impl topcoat::view::NodeViewParts for &NfcNormalizedString {
+    fn into_view_parts(
+        self,
+        cx: &topcoat::context::Cx,
+        parts: &mut topcoat::view::PartsWriter<'_>,
+    ) {
+        self.as_str().into_view_parts(cx, parts);
     }
 }
 
@@ -239,6 +253,6 @@ impl topcoat::view::NodeViewParts for &SearchableString {
         cx: &topcoat::context::Cx,
         parts: &mut topcoat::view::PartsWriter<'_>,
     ) {
-        self.displayable.as_str().into_view_parts(cx, parts);
+        self.displayable.into_view_parts(cx, parts);
     }
 }

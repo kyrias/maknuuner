@@ -12,6 +12,7 @@ either = "1.17.0"
 interner = "0.2.1"
 itertools = "0.15.0"
 serde = "1.0.229"
+smallvec = { version = "1.15.2", default-features = false, features = ["union"] }
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }
 topcoat = "0.5.0"
 unicode-normalization = "0.1.25"

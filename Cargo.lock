@@ -930,6 +930,7 @@ dependencies = [
  "interner",
  "itertools",
  "serde",
+ "smallvec",
  "tokio",
  "topcoat",
  "unicode-normalization",

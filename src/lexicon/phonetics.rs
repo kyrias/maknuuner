@@ -1,13 +1,16 @@
 use anyhow::{Context, Result, ensure};
 use compact_str::CompactString;
+use smallvec::SmallVec;
 
-use crate::string::SearchableString;
+use crate::string::NfcNormalizedString;
 
-pub(crate) fn caphipp_to_ipa<T: AsRef<str>>(string: T) -> Result<Vec<SearchableString>> {
+pub(crate) fn caphipp_to_ipa<T: AsRef<str>>(
+    string: T,
+) -> Result<SmallVec<[NfcNormalizedString; 1]>> {
     let string = string.as_ref();
 
     if string.contains(',') {
-        let mut out = Vec::new();
+        let mut out = SmallVec::new();
         for results in string.split(',').map(caphipp_to_ipa) {
             for result in results? {
                 if !out.contains(&result) {
@@ -20,13 +23,13 @@ pub(crate) fn caphipp_to_ipa<T: AsRef<str>>(string: T) -> Result<Vec<SearchableS
 
     let mut out = vec![CompactString::default()];
 
-    let mut alternates: Option<Vec<Phoneme>> = None;
+    let mut alternates: Option<SmallVec<[Phoneme; 8]>> = None;
     for segment in string.split(' ').filter(|segment| !segment.is_empty()) {
         if segment.contains("||") {
             let phonemes = segment
                 .split("||")
                 .map(Phoneme::try_from)
-                .collect::<Result<Vec<_>>>()
+                .collect::<Result<SmallVec<_>>>()
                 .context("Could not parse CAPHI++ alternation segment")?;
 
             let alternates = if let Some(alternates) = &alternates {
@@ -56,7 +59,7 @@ pub(crate) fn caphipp_to_ipa<T: AsRef<str>>(string: T) -> Result<Vec<SearchableS
 
     Ok(out
         .into_iter()
-        .map(|s| SearchableString::non_folded(s.chars()))
+        .map(|s| NfcNormalizedString::allocated(s.chars()))
         .collect())
 }
 
