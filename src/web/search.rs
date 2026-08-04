@@ -199,9 +199,9 @@ async fn common_fields(transcription: &Transcription, glosses: &[SearchableStrin
         <span class="transcription">
             "("
             for (idx, ipa) in transcription.ipa.iter().enumerate() {
-                "/"
+                "/\u{2060}"
                 (&**ipa)
-                "/"
+                "\u{2060}/"
                 if (idx + 1) < num {
                     ", "
                 }
