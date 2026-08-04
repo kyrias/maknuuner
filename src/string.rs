@@ -1,7 +1,7 @@
 use std::{fmt::Debug, hash::Hash};
 
 use caseless::Caseless;
-use compact_str::CompactString;
+use compact_str::{CompactString, ToCompactString};
 use interner::global::{GlobalPool, GlobalString};
 use unicode_normalization::UnicodeNormalization;
 
@@ -18,11 +18,11 @@ enum String {
 
 impl String {
     pub(crate) fn interned<T: AsRef<str>>(string: T) -> Self {
-        Self::Interned(INTERNER_POOL.get(string.as_ref()))
+        Self::Interned(INTERNER_POOL.get(string.as_ref().trim()))
     }
 
     pub(crate) fn allocated<T: Into<CompactString>>(string: T) -> Self {
-        Self::Allocated(string.into())
+        Self::Allocated(string.into().trim().to_compact_string())
     }
 
     fn as_str(&self) -> &str {

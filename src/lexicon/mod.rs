@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::{Context as _, Result, bail, ensure};
 use compact_str::{CompactString, ToCompactString};
+use itertools::Itertools;
 
 use crate::{
     lexicon::pos::PartOfSpeech,
@@ -150,17 +151,43 @@ impl Definition {
     /// Parse a gloss string into a vector of glosses, removing the auto-generated entry suffix if
     /// present.
     fn parse_glosses(gloss: &str) -> (Vec<SearchableString>, bool) {
+        let mut out = Vec::new();
+
         let stripped = gloss.strip_suffix("[auto]");
         let auto = stripped.is_some();
 
-        let glosses: Vec<SearchableString> = stripped
-            .unwrap_or(gloss)
-            .replace("_", " ")
-            .split(';')
-            .map(|g| SearchableString::case_folded(g.trim().chars()))
-            .collect();
+        let mut iter = stripped.unwrap_or(gloss).chars().peekable();
+        let mut tmp = CompactString::default();
+        loop {
+            tmp.extend(iter.peeking_take_while(|c| ![';', '"'].contains(c)));
 
-        (glosses, auto)
+            match iter.next() {
+                Some(';') | None => {
+                    let string = SearchableString::case_folded(
+                        std::mem::take(&mut tmp)
+                            .chars()
+                            .map(|c| if c == '_' { ' ' } else { c }),
+                    );
+
+                    out.push(string);
+
+                    if iter.peek().is_none() {
+                        break;
+                    }
+                }
+
+                Some('"') => {
+                    tmp.push('"');
+                    tmp.extend((&mut iter).take_while_inclusive(|c| !['"'].contains(c)));
+                }
+
+                _ => {
+                    unreachable!()
+                }
+            }
+        }
+
+        (out, auto)
     }
 
     fn parse_pos(id: u32, analysis: &str) -> Option<PartOfSpeech> {
