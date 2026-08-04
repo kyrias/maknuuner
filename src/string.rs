@@ -1,197 +1,237 @@
-use std::{fmt::Debug, hash::Hash, ops::Deref};
+use std::{fmt::Debug, hash::Hash};
 
 use caseless::Caseless;
 use compact_str::CompactString;
 use interner::global::{GlobalPool, GlobalString};
 use unicode_normalization::UnicodeNormalization;
 
-static INTERNER_POOL: GlobalPool<String> = GlobalPool::new();
+static INTERNER_POOL: GlobalPool<std::string::String> = GlobalPool::new();
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct InternedString(GlobalString);
-
-/// Interned string type.
+/// Interned or heap allocated string type.
 ///
-/// This type performs no normalization or case-folding.  Outside of the `string` module it should
-/// **only** be used by the `Transcription` struct which needs it as a result of NKFC normalization
-/// screwing up IPA modifier characters.
-impl InternedString {
-    pub(crate) fn new<T: AsRef<str>>(string: T) -> Self {
-        Self(INTERNER_POOL.get(string.as_ref()))
-    }
-}
-
-impl Deref for InternedString {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-/// NKFC normalized string type.
-///
-/// Every string in the application should use either this string type or one built on top of it to
-/// ensure that we normalize every string passing through it.
-#[derive(Clone, Debug, Eq)]
-pub(crate) enum NormalizedString {
-    Interned(InternedString),
+/// This type performs no normalization or case-folding.
+#[derive(Clone, Debug)]
+enum String {
+    Interned(GlobalString),
     Allocated(CompactString),
 }
 
-impl NormalizedString {
-    fn normalize<T: IntoIterator<Item = char>>(string: T) -> CompactString {
-        string.into_iter().nfkc().collect::<CompactString>()
+impl String {
+    pub(crate) fn interned<T: AsRef<str>>(string: T) -> Self {
+        Self::Interned(INTERNER_POOL.get(string.as_ref()))
     }
 
-    pub(crate) fn interned<T: IntoIterator<Item = char>>(string: T) -> Self {
-        Self::Interned(InternedString::new(NormalizedString::normalize(string)))
+    pub(crate) fn allocated<T: Into<CompactString>>(string: T) -> Self {
+        Self::Allocated(string.into())
     }
 
-    pub(crate) fn allocated<T: IntoIterator<Item = char>>(string: T) -> Self {
-        Self::Allocated(NormalizedString::normalize(string))
-    }
-}
-
-impl Deref for NormalizedString {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
+    fn as_str(&self) -> &str {
         match self {
-            NormalizedString::Interned(inner) => inner,
-            NormalizedString::Allocated(inner) => inner,
+            String::Interned(inner) => inner,
+            String::Allocated(inner) => inner,
         }
     }
 }
 
-impl Hash for NormalizedString {
+impl Hash for String {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let s: &str = self;
-        s.hash(state);
+        self.as_str().hash(state);
     }
 }
 
-impl PartialEq for NormalizedString {
+impl PartialEq for String {
     fn eq(&self, other: &Self) -> bool {
         // Interned strings can be cheaply compared against each other, all other strings must be
         // compared as &str.
         match (self, other) {
             (Self::Interned(this), Self::Interned(other)) => this == other,
-            _ => {
-                let this: &str = self;
-                let other: &str = other;
-
-                this == other
-            }
+            _ => self.as_str() == other.as_str(),
         }
     }
 }
 
-impl PartialOrd for NormalizedString {
+impl Eq for String {}
+
+impl PartialOrd for String {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for NormalizedString {
+impl Ord for String {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let this: &str = self;
-        let other: &str = other;
-
-        this.cmp(other)
+        self.as_str().cmp(other.as_str())
     }
 }
 
-impl topcoat::view::NodeViewParts for &NormalizedString {
-    fn into_view_parts(
-        self,
-        cx: &topcoat::context::Cx,
-        parts: &mut topcoat::view::PartsWriter<'_>,
-    ) {
-        let s: &str = self;
-        s.into_view_parts(cx, parts);
-    }
-}
-
-/// Case-folded string type.
+/// NFC normalized string type.
 ///
-/// This is useful for fields for which case-insensitive search makes sense but which we don't need
-/// to display to the user in its original form.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct CaseFoldedString(NormalizedString);
+/// Every string in the application that should be displayable should be built on top of this
+/// string.
+///
+/// Note: NFC normalization is only useful for rendering, it is not appropriate for searching as
+/// semantically equivalent characters aren't necessarily always encoded in the same way.
+#[derive(Clone, Debug)]
+pub(crate) struct NfcNormalizedString(String);
 
-impl CaseFoldedString {
-    fn case_fold<T: IntoIterator<Item = char>>(string: T) -> impl Iterator<Item = char> {
-        string.into_iter().nfkc().default_case_fold()
+impl NfcNormalizedString {
+    fn normalize<T: IntoIterator<Item = char>>(string: T) -> CompactString {
+        string.into_iter().nfc().collect::<CompactString>()
     }
 
-    fn interned<T: IntoIterator<Item = char>>(string: T) -> Self {
-        Self(NormalizedString::interned(Self::case_fold(string)))
+    pub(crate) fn interned<T: IntoIterator<Item = char>>(string: T) -> Self {
+        Self(String::interned(Self::normalize(string)))
+    }
+
+    pub(crate) fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+#[derive(Clone)]
+pub(crate) enum NfkcNormalizedString {
+    NonFolded(NonFoldedNfkcNormalizedString),
+    CaseFolded(CaseFoldedNfkcNormalizedString),
+}
+
+impl NfkcNormalizedString {
+    pub(crate) fn as_str(&self) -> &str {
+        match self {
+            NfkcNormalizedString::NonFolded(inner) => inner.as_str(),
+            NfkcNormalizedString::CaseFolded(inner) => inner.as_str(),
+        }
+    }
+}
+
+/// Non-folded NFKC normalized string type.
+///
+/// Every string in the application that should be searchable should be built on top of this
+/// string.
+///
+/// This type should only be used for fields where case-folding changes the semantics, such as the
+/// Buckwalter transliteration.  In all other cases [`CaseFoldedNfkcNormalizedString`] is more
+/// appropriate.
+///
+/// Note: NFKC normalization is only useful for searching, it is not appropriate for rendering as
+/// it will sometimes decompose characters into characters that render differently, especially in
+/// the case of IPA transcriptions.
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct NonFoldedNfkcNormalizedString(String);
+
+impl NonFoldedNfkcNormalizedString {
+    fn normalize<T: IntoIterator<Item = char>>(string: T) -> CompactString {
+        string.into_iter().nfkc().collect::<CompactString>()
+    }
+
+    pub(crate) fn interned<T: IntoIterator<Item = char>>(string: T) -> Self {
+        Self(String::interned(Self::normalize(string)))
     }
 
     pub(crate) fn allocated<T: IntoIterator<Item = char>>(string: T) -> Self {
-        Self(NormalizedString::allocated(Self::case_fold(string)))
+        Self(String::allocated(Self::normalize(string)))
+    }
+
+    pub(crate) fn as_str(&self) -> &str {
+        self.0.as_str()
     }
 }
 
-impl Deref for CaseFoldedString {
-    type Target = str;
+/// Case-folded NFKC normalized string type.
+///
+/// This is useful for fields for which case-insensitive search makes sense but which we don't need
+/// to display to the user in its original form.
+///
+/// This type should be used for all fields *except for* fields where case-folding changes the
+/// semantics, such as the Buckwalter transliteration.  Those fields should use
+/// [`NonFoldedNfkcNormalizedString`].
+///
+/// Note: NFKC normalization is only useful for searching, it is not appropriate for rendering as
+/// it will sometimes decompose characters into characters that render differently, especially in
+/// the case of IPA transcriptions.
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct CaseFoldedNfkcNormalizedString(String);
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl CaseFoldedNfkcNormalizedString {
+    fn case_fold<T: IntoIterator<Item = char>>(string: T) -> CompactString {
+        string
+            .into_iter()
+            .default_case_fold()
+            .nfkc()
+            .collect::<CompactString>()
+    }
+
+    pub(crate) fn interned<T: IntoIterator<Item = char>>(string: T) -> Self {
+        Self(String::interned(Self::case_fold(string)))
+    }
+
+    pub(crate) fn allocated<T: IntoIterator<Item = char>>(string: T) -> Self {
+        Self(String::allocated(Self::case_fold(string)))
+    }
+
+    pub(crate) fn as_str(&self) -> &str {
+        self.0.as_str()
     }
 }
 
 /// Searchable string type.
 ///
-/// Contains both a display version of the string as well as a case-folded version for searching.
+/// Contains separate versions of the string meant for displaying or for searching.
 ///
-/// All operations on this string other than displaying it to the user should use the `case_folded`
+/// Displayable strings *should* be NFC normalized and *must not* be NFKC normalized as NFKC
+/// normalization can change how the string renders.
+///
+/// Searchable strings *must* be NFKC normalized and optionally case-folded.
+///
+/// All operations on this string other than displaying it to the user must use the `searchable`
 /// field.
-#[derive(Clone, Eq)]
+#[derive(Clone)]
 pub(crate) struct SearchableString {
-    pub normalized: NormalizedString,
-    pub case_folded: CaseFoldedString,
+    pub(crate) displayable: NfcNormalizedString,
+    pub(crate) searchable: NfkcNormalizedString,
 }
 
 impl SearchableString {
-    pub(crate) fn interned<T: IntoIterator<Item = char> + Clone>(string: T) -> Self {
+    pub(crate) fn non_folded<T: IntoIterator<Item = char> + Clone>(string: T) -> Self {
         Self {
-            normalized: NormalizedString::interned(string.clone()),
-            case_folded: CaseFoldedString::interned(string),
+            displayable: NfcNormalizedString::interned(string.clone()),
+            searchable: NfkcNormalizedString::NonFolded(NonFoldedNfkcNormalizedString::interned(
+                string,
+            )),
         }
     }
 
-    pub(crate) fn allocated<T: IntoIterator<Item = char> + Clone>(string: T) -> Self {
+    pub(crate) fn case_folded<T: IntoIterator<Item = char> + Clone>(string: T) -> Self {
         Self {
-            normalized: NormalizedString::allocated(string.clone()),
-            case_folded: CaseFoldedString::allocated(string),
+            displayable: NfcNormalizedString::interned(string.clone()),
+            searchable: NfkcNormalizedString::CaseFolded(CaseFoldedNfkcNormalizedString::interned(
+                string,
+            )),
         }
-    }
-}
-
-impl PartialEq for SearchableString {
-    fn eq(&self, other: &Self) -> bool {
-        self.case_folded == other.case_folded
-    }
-}
-
-impl Hash for SearchableString {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.case_folded.hash(state);
     }
 }
 
 impl Debug for SearchableString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let normalized: &str = &self.normalized;
-        let case_folded: &str = &self.case_folded;
         f.debug_struct("SearchableString")
-            .field("normalized", &normalized)
-            .field("case_folded", &case_folded)
+            .field("displayable", &self.displayable.as_str())
+            .field("searchable", &self.searchable.as_str())
             .finish()
     }
 }
+
+impl Hash for SearchableString {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.searchable.as_str().hash(state);
+    }
+}
+
+impl PartialEq for SearchableString {
+    fn eq(&self, other: &Self) -> bool {
+        self.searchable.as_str() == other.searchable.as_str()
+    }
+}
+
+impl Eq for SearchableString {}
 
 impl topcoat::view::NodeViewParts for &SearchableString {
     fn into_view_parts(
@@ -199,6 +239,6 @@ impl topcoat::view::NodeViewParts for &SearchableString {
         cx: &topcoat::context::Cx,
         parts: &mut topcoat::view::PartsWriter<'_>,
     ) {
-        self.normalized.into_view_parts(cx, parts);
+        self.displayable.as_str().into_view_parts(cx, parts);
     }
 }

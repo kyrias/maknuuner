@@ -1,8 +1,16 @@
 use std::collections::HashMap;
 
+use either::Either;
 use itertools::Itertools;
 
-use crate::{lexicon::Lemma, string::SearchableString};
+use crate::{
+    lexicon::Lemma,
+    query,
+    string::{
+        CaseFoldedNfkcNormalizedString, NfkcNormalizedString, NonFoldedNfkcNormalizedString,
+        SearchableString,
+    },
+};
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub(crate) struct Term(pub [char; 3]);
@@ -11,19 +19,34 @@ pub(crate) trait ToTerms {
     fn to_terms(&self) -> impl Iterator<Item = Term>;
 }
 
-impl ToTerms for str {
+impl ToTerms for NonFoldedNfkcNormalizedString {
     fn to_terms(&self) -> impl Iterator<Item = Term> {
         // Add two spaces to the start of the string to ensure that searching for short strings
         // works.
-        Itertools::array_windows("  ".chars().chain(self.chars())).map(Term)
+        Itertools::array_windows("  ".chars().chain(self.as_str().chars())).map(Term)
+    }
+}
+
+impl ToTerms for CaseFoldedNfkcNormalizedString {
+    fn to_terms(&self) -> impl Iterator<Item = Term> {
+        // Add two spaces to the start of the string to ensure that searching for short strings
+        // works.
+        Itertools::array_windows("  ".chars().chain(self.as_str().chars())).map(Term)
+    }
+}
+
+impl ToTerms for NfkcNormalizedString {
+    fn to_terms(&self) -> impl Iterator<Item = Term> {
+        match self {
+            NfkcNormalizedString::NonFolded(inner) => Either::Left(inner.to_terms()),
+            NfkcNormalizedString::CaseFolded(inner) => Either::Right(inner.to_terms()),
+        }
     }
 }
 
 impl ToTerms for SearchableString {
     fn to_terms(&self) -> impl Iterator<Item = Term> {
-        self.normalized
-            .to_terms()
-            .chain(self.case_folded.to_terms())
+        self.searchable.to_terms()
     }
 }
 
@@ -61,6 +84,15 @@ impl ToTerms for Lemma {
         //     .flatten();
 
         lemma.chain(definitions)
+    }
+}
+
+impl ToTerms for query::Term {
+    fn to_terms(&self) -> impl Iterator<Item = Term> {
+        self.term
+            .non_folded
+            .to_terms()
+            .chain(self.term.case_folded.to_terms())
     }
 }
 

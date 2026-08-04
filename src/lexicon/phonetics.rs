@@ -1,9 +1,9 @@
 use anyhow::{Context, Result, ensure};
 use compact_str::CompactString;
 
-use crate::string::InternedString;
+use crate::string::SearchableString;
 
-pub(crate) fn caphipp_to_ipa<T: AsRef<str>>(string: T) -> Result<Vec<InternedString>> {
+pub(crate) fn caphipp_to_ipa<T: AsRef<str>>(string: T) -> Result<Vec<SearchableString>> {
     let string = string.as_ref();
 
     if string.contains(',') {
@@ -54,7 +54,10 @@ pub(crate) fn caphipp_to_ipa<T: AsRef<str>>(string: T) -> Result<Vec<InternedStr
         }
     }
 
-    Ok(out.into_iter().map(InternedString::new).collect())
+    Ok(out
+        .into_iter()
+        .map(|s| SearchableString::non_folded(s.chars()))
+        .collect())
 }
 
 macro_rules! def_phoneme {

@@ -10,7 +10,7 @@ use compact_str::{CompactString, ToCompactString};
 use crate::{
     lexicon::pos::PartOfSpeech,
     query::{self, MatchTerm as _},
-    string::{InternedString, NormalizedString, SearchableString},
+    string::{NonFoldedNfkcNormalizedString, SearchableString},
     tf_idf::{DocumentTermFrequencies, InverseDocumentFrequencies, ToTerms},
 };
 
@@ -42,10 +42,10 @@ pub(crate) struct Record {
     notes: CompactString,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub(crate) enum Root {
-    Root(NormalizedString),
-    NonTemplaticWordStem(NormalizedString),
+    Root(SearchableString),
+    NonTemplaticWordStem(SearchableString),
 }
 
 impl Root {
@@ -53,17 +53,17 @@ impl Root {
         let middledots = |c| if c == '.' { '·' } else { c };
 
         if root == "NTWS" {
-            Self::NonTemplaticWordStem(NormalizedString::interned(
+            Self::NonTemplaticWordStem(SearchableString::case_folded(
                 root_ntws.chars().map(middledots),
             ))
         } else {
-            Self::Root(NormalizedString::interned(root.chars().map(middledots)))
+            Self::Root(SearchableString::case_folded(root.chars().map(middledots)))
         }
     }
 }
 
 impl Deref for Root {
-    type Target = str;
+    type Target = SearchableString;
 
     fn deref(&self) -> &Self::Target {
         match self {
@@ -74,23 +74,21 @@ impl Deref for Root {
 
 #[derive(Debug)]
 pub(crate) struct Transcription {
-    pub caphipp: NormalizedString,
-    pub bw: NormalizedString,
+    pub caphipp: SearchableString,
+    pub bw: SearchableString,
     /// List of IPA transcriptions for a given word.
     ///
-    /// These are constructed from the CAPHI++ field.
-    ///
-    /// These intentionally use raw interned strings rather than `NormalizedString` because that
-    /// type performs NKFC normalization which decomposes IPA modifier characters into the
-    /// non-modifier equivalent, which renders incorrectly.
-    pub ipa: Vec<InternedString>,
+    /// These are automatically constructed from the CAPHI++ field.
+    pub ipa: Vec<SearchableString>,
 }
 
 impl Transcription {
     fn new<T: AsRef<str>>(caphipp: T, bw: T) -> Result<Self> {
         Ok(Self {
-            caphipp: NormalizedString::interned(caphipp.as_ref().chars()),
-            bw: NormalizedString::interned(bw.as_ref().chars()),
+            // Both of these have case-sensitive semantics.
+            caphipp: SearchableString::non_folded(caphipp.as_ref().chars()),
+            bw: SearchableString::non_folded(bw.as_ref().chars()),
+
             ipa: phonetics::caphipp_to_ipa(caphipp.as_ref())
                 .context("Failed to convert CAPHI++ to IPA")?,
         })
@@ -116,14 +114,14 @@ pub(crate) struct Custom {
 pub(crate) struct Definition {
     pub id: u32,
 
-    pub form: NormalizedString,
+    pub form: SearchableString,
     pub transcription: Transcription,
     pub analysis: SearchableString,
 
     pub glosses: Vec<SearchableString>,
-    pub gloss_msa: NormalizedString,
+    pub gloss_msa: SearchableString,
 
-    pub example_usage: NormalizedString,
+    pub example_usage: SearchableString,
     pub notes: SearchableString,
 
     pub custom: Custom,
@@ -159,7 +157,7 @@ impl Definition {
             .unwrap_or(gloss)
             .replace("_", " ")
             .split(';')
-            .map(|g| SearchableString::interned(g.trim().chars()))
+            .map(|g| SearchableString::case_folded(g.trim().chars()))
             .collect();
 
         (glosses, auto)
@@ -213,14 +211,14 @@ impl TryFrom<Record> for Definition {
 
         Ok(Self {
             id,
-            form: NormalizedString::interned(form.chars()),
+            form: SearchableString::case_folded(form.chars()),
             transcription: Transcription::new(caphipp, form_bw)
                 .with_context(|| format!("Failed to parse transcriptions of record {id}"))?,
-            analysis: SearchableString::interned(analysis.chars()),
+            analysis: SearchableString::case_folded(analysis.chars()),
             glosses,
-            gloss_msa: NormalizedString::interned(gloss_msa.chars()),
-            example_usage: NormalizedString::interned(example_usage.chars()),
-            notes: SearchableString::interned(notes.chars()),
+            gloss_msa: SearchableString::case_folded(gloss_msa.chars()),
+            example_usage: SearchableString::case_folded(example_usage.chars()),
+            notes: SearchableString::case_folded(notes.chars()),
 
             custom: Custom { pos, auto },
         })
@@ -232,13 +230,13 @@ impl TryFrom<Record> for Definition {
 pub(crate) struct Phrase {
     pub id: u32,
 
-    pub form: NormalizedString,
+    pub form: SearchableString,
     pub transcription: Transcription,
 
     pub glosses: Vec<SearchableString>,
-    pub gloss_msa: NormalizedString,
+    pub gloss_msa: SearchableString,
 
-    pub example_usage: NormalizedString,
+    pub example_usage: SearchableString,
     pub notes: SearchableString,
 }
 
@@ -293,13 +291,13 @@ impl TryFrom<Record> for Phrase {
 
         Ok(Self {
             id,
-            form: NormalizedString::interned(form.chars()),
+            form: SearchableString::case_folded(form.chars()),
             transcription: Transcription::new(caphipp, form_bw)
                 .with_context(|| format!("Failed to parse transcriptions of record {id}"))?,
             glosses,
-            gloss_msa: NormalizedString::interned(gloss_msa.chars()),
-            example_usage: NormalizedString::interned(example_usage.chars()),
-            notes: SearchableString::interned(notes.chars()),
+            gloss_msa: SearchableString::case_folded(gloss_msa.chars()),
+            example_usage: SearchableString::case_folded(example_usage.chars()),
+            notes: SearchableString::case_folded(notes.chars()),
         })
     }
 }
@@ -307,11 +305,11 @@ impl TryFrom<Record> for Phrase {
 #[derive(Debug)]
 pub(crate) struct Lemma {
     pub root: Root,
-    pub root_1: NormalizedString,
+    pub root_1: SearchableString,
 
-    pub lemma: NormalizedString,
-    pub lemma_search: NormalizedString,
-    pub lemma_bw: NormalizedString,
+    pub lemma: SearchableString,
+    pub lemma_search: SearchableString,
+    pub lemma_bw: SearchableString,
 
     pub definitions: Vec<Definition>,
     pub phrases: Vec<Phrase>,
@@ -362,7 +360,7 @@ impl Lemma {
     fn matches_leaf(&self, lexicon: &Lexicon, leaf: &query::Leaf) -> (bool, f64) {
         let (matches, term) = match leaf {
             query::Leaf::Term { term } => {
-                let matches = term.matches(&self.root)
+                let matches = term.matches(&*self.root)
                     || term.matches(&self.lemma)
                     || term.matches(&self.lemma_search);
                 (matches, term)
@@ -410,10 +408,10 @@ impl TryFrom<Record> for Lemma {
 
         let mut lemma = Lemma {
             root: Root::new(root, root_ntws),
-            root_1: NormalizedString::interned(root_1.chars()),
-            lemma: NormalizedString::interned(lemma.chars()),
-            lemma_search: NormalizedString::interned(lemma_search.chars()),
-            lemma_bw: NormalizedString::interned(lemma_bw.chars()),
+            root_1: SearchableString::case_folded(root_1.chars()),
+            lemma: SearchableString::case_folded(lemma.chars()),
+            lemma_search: SearchableString::case_folded(lemma_search.chars()),
+            lemma_bw: SearchableString::non_folded(lemma_bw.chars()),
 
             definitions: Default::default(),
             phrases: Default::default(),
@@ -451,15 +449,17 @@ impl Lexicon {
         // Group the raw records by root, lemma, and part of speech.
         //
         // Also separate definitions from phrases.
-        let mut lemmas = HashMap::<(Root, NormalizedString, NormalizedString), Lemma>::new();
+        let mut lemmas =
+            HashMap::<(Root, SearchableString, NonFoldedNfkcNormalizedString), Lemma>::new();
         for record in reader.deserialize::<Record>() {
             let record = record.context("Failed to deserialize lexicon record")?;
             let Some(record) = patch_record(record).context("Failed to patch record")? else {
                 continue;
             };
 
-            let pos =
-                NormalizedString::interned(record.analysis.split(':').next().unwrap().chars());
+            let pos = NonFoldedNfkcNormalizedString::interned(
+                record.analysis.split(':').next().unwrap().chars(),
+            );
 
             let lemma = Lemma::try_from(record).context("Failed to convert record to lemma")?;
             let lemma_id = lemma.lowest_id();

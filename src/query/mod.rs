@@ -1,18 +1,24 @@
-use std::ops::Deref;
-
 use anyhow::{Result, bail, ensure};
 
 use crate::{
-    lexicon::Root,
     query::lexer::{Lexer, Token},
-    string::{CaseFoldedString, NormalizedString, SearchableString},
+    string::{
+        CaseFoldedNfkcNormalizedString, NfkcNormalizedString, NonFoldedNfkcNormalizedString,
+        SearchableString,
+    },
 };
 
 mod lexer;
 
 #[derive(Debug)]
+pub(crate) struct TermString {
+    pub(crate) non_folded: NonFoldedNfkcNormalizedString,
+    pub(crate) case_folded: CaseFoldedNfkcNormalizedString,
+}
+
+#[derive(Debug)]
 pub(crate) struct Term {
-    term: SearchableString,
+    pub(crate) term: TermString,
     anchor_start: bool,
     anchor_end: bool,
 }
@@ -29,18 +35,13 @@ impl From<&str> for Term {
         };
 
         Term {
-            term: SearchableString::allocated(value.chars()),
+            term: TermString {
+                non_folded: NonFoldedNfkcNormalizedString::allocated(value.chars()),
+                case_folded: CaseFoldedNfkcNormalizedString::allocated(value.chars()),
+            },
             anchor_start,
             anchor_end,
         }
-    }
-}
-
-impl Deref for Term {
-    type Target = SearchableString;
-
-    fn deref(&self) -> &Self::Target {
-        &self.term
     }
 }
 
@@ -51,40 +52,36 @@ where
     fn matches(&self, value: &T) -> bool;
 }
 
-impl MatchTerm<NormalizedString> for Term {
-    fn matches(&self, string: &NormalizedString) -> bool {
+impl MatchTerm<NonFoldedNfkcNormalizedString> for Term {
+    fn matches(&self, string: &NonFoldedNfkcNormalizedString) -> bool {
+        let string = string.as_str();
         match (self.anchor_start, self.anchor_end) {
-            (false, false) => string.contains(&*self.term.normalized),
-            (true, false) => string.starts_with(&*self.term.normalized),
-            (true, true) => string == &self.term.normalized,
-            (false, true) => string.ends_with(&*self.term.normalized),
+            (false, false) => string.contains(self.term.non_folded.as_str()),
+            (true, false) => string.starts_with(self.term.non_folded.as_str()),
+            (true, true) => string == self.term.non_folded.as_str(),
+            (false, true) => string.ends_with(self.term.non_folded.as_str()),
         }
     }
 }
 
-impl MatchTerm<CaseFoldedString> for Term {
-    fn matches(&self, string: &CaseFoldedString) -> bool {
+impl MatchTerm<CaseFoldedNfkcNormalizedString> for Term {
+    fn matches(&self, string: &CaseFoldedNfkcNormalizedString) -> bool {
+        let string = string.as_str();
         match (self.anchor_start, self.anchor_end) {
-            (false, false) => string.contains(&*self.term.case_folded),
-            (true, false) => string.starts_with(&*self.term.case_folded),
-            (true, true) => string == &self.term.case_folded,
-            (false, true) => string.ends_with(&*self.term.case_folded),
+            (false, false) => string.contains(self.term.case_folded.as_str()),
+            (true, false) => string.starts_with(self.term.case_folded.as_str()),
+            (true, true) => string == self.term.case_folded.as_str(),
+            (false, true) => string.ends_with(self.term.case_folded.as_str()),
         }
     }
 }
 
 impl MatchTerm<SearchableString> for Term {
     fn matches(&self, value: &SearchableString) -> bool {
-        self.matches(&value.case_folded)
-    }
-}
-
-impl MatchTerm<Root> for Term {
-    fn matches(&self, root: &Root) -> bool {
-        let string = match root {
-            Root::Root(string) | Root::NonTemplaticWordStem(string) => string,
-        };
-        self.matches(string)
+        match &value.searchable {
+            NfkcNormalizedString::NonFolded(inner) => self.matches(inner),
+            NfkcNormalizedString::CaseFolded(inner) => self.matches(inner),
+        }
     }
 }
 
@@ -135,7 +132,10 @@ impl Query {
         if query_string.trim().is_empty() {
             return Ok(Query::Leaf(Leaf::Term {
                 term: Term {
-                    term: SearchableString::interned("".chars()),
+                    term: TermString {
+                        non_folded: NonFoldedNfkcNormalizedString::interned("".chars()),
+                        case_folded: CaseFoldedNfkcNormalizedString::interned("".chars()),
+                    },
                     anchor_start: false,
                     anchor_end: false,
                 },

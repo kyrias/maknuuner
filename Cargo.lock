@@ -926,6 +926,7 @@ dependencies = [
  "caseless",
  "compact_str",
  "csv",
+ "either",
  "interner",
  "itertools",
  "serde",
