@@ -143,6 +143,10 @@ input.search {
         };
     }
 
+    h4 {
+        margin-top: 0.5em;
+    }
+
     .pos {
         margin-left: 0.75em;
     }
