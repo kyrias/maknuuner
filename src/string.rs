@@ -71,8 +71,16 @@ impl Ord for String {
 ///
 /// Note: NFC normalization is only useful for rendering, it is not appropriate for searching as
 /// semantically equivalent characters aren't necessarily always encoded in the same way.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub(crate) struct NfcNormalizedString(String);
+
+impl Debug for NfcNormalizedString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("NfcNormalizedString")
+            .field(&self.as_str())
+            .finish()
+    }
+}
 
 impl NfcNormalizedString {
     fn normalize<T: IntoIterator<Item = char>>(string: T) -> CompactString {
@@ -129,7 +137,7 @@ impl NfkcNormalizedString {
 /// Note: NFKC normalization is only useful for searching, it is not appropriate for rendering as
 /// it will sometimes decompose characters into characters that render differently, especially in
 /// the case of IPA transcriptions.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct NonFoldedNfkcNormalizedString(String);
 
 impl NonFoldedNfkcNormalizedString {
@@ -150,6 +158,14 @@ impl NonFoldedNfkcNormalizedString {
     }
 }
 
+impl Debug for NonFoldedNfkcNormalizedString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("NonFoldedNfkcNormalizedString")
+            .field(&self.as_str())
+            .finish()
+    }
+}
+
 /// Case-folded NFKC normalized string type.
 ///
 /// This is useful for fields for which case-insensitive search makes sense but which we don't need
@@ -162,7 +178,7 @@ impl NonFoldedNfkcNormalizedString {
 /// Note: NFKC normalization is only useful for searching, it is not appropriate for rendering as
 /// it will sometimes decompose characters into characters that render differently, especially in
 /// the case of IPA transcriptions.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct CaseFoldedNfkcNormalizedString(String);
 
 impl CaseFoldedNfkcNormalizedString {
@@ -184,6 +200,14 @@ impl CaseFoldedNfkcNormalizedString {
 
     pub(crate) fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+}
+
+impl Debug for CaseFoldedNfkcNormalizedString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("CaseFoldedNfkcNormalizedString")
+            .field(&self.as_str())
+            .finish()
     }
 }
 
@@ -226,9 +250,8 @@ impl SearchableString {
 
 impl Debug for SearchableString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SearchableString")
-            .field("displayable", &self.displayable.as_str())
-            .field("searchable", &self.searchable.as_str())
+        f.debug_tuple("SearchableString")
+            .field(&self.displayable.as_str())
             .finish()
     }
 }

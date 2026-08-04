@@ -1,6 +1,9 @@
+use std::fmt::{Debug, Display};
+
 use anyhow::{Result, bail, ensure};
 
 use crate::{
+    lexicon::Lexicon,
     query::lexer::{Lexer, Token},
     string::{
         CaseFoldedNfkcNormalizedString, NfkcNormalizedString, NonFoldedNfkcNormalizedString,
@@ -8,15 +11,14 @@ use crate::{
     },
 };
 
+mod impls;
 mod lexer;
 
-#[derive(Debug)]
 pub(crate) struct TermString {
     pub(crate) non_folded: NonFoldedNfkcNormalizedString,
     pub(crate) case_folded: CaseFoldedNfkcNormalizedString,
 }
 
-#[derive(Debug)]
 pub(crate) struct Term {
     pub(crate) term: TermString,
     anchor_start: bool,
@@ -45,15 +47,32 @@ impl From<&str> for Term {
     }
 }
 
-pub(crate) trait MatchTerm<T>
+impl Debug for Term {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Term")
+            .field(&format!(
+                "{}{}{}",
+                if self.anchor_start { "^" } else { "" },
+                self.term.non_folded.as_str(),
+                if self.anchor_end { "$" } else { "" }
+            ))
+            .finish()
+    }
+}
+
+pub(crate) trait Matches<T>
 where
     T: ?Sized,
 {
-    fn matches(&self, value: &T) -> bool;
+    type Result;
+
+    fn matches(&self, lexicon: &Lexicon, value: &T) -> Self::Result;
 }
 
-impl MatchTerm<NonFoldedNfkcNormalizedString> for Term {
-    fn matches(&self, string: &NonFoldedNfkcNormalizedString) -> bool {
+impl Matches<NonFoldedNfkcNormalizedString> for Term {
+    type Result = bool;
+
+    fn matches(&self, _lexicon: &Lexicon, string: &NonFoldedNfkcNormalizedString) -> bool {
         let string = string.as_str();
         match (self.anchor_start, self.anchor_end) {
             (false, false) => string.contains(self.term.non_folded.as_str()),
@@ -64,8 +83,10 @@ impl MatchTerm<NonFoldedNfkcNormalizedString> for Term {
     }
 }
 
-impl MatchTerm<CaseFoldedNfkcNormalizedString> for Term {
-    fn matches(&self, string: &CaseFoldedNfkcNormalizedString) -> bool {
+impl Matches<CaseFoldedNfkcNormalizedString> for Term {
+    type Result = bool;
+
+    fn matches(&self, _lexicon: &Lexicon, string: &CaseFoldedNfkcNormalizedString) -> bool {
         let string = string.as_str();
         match (self.anchor_start, self.anchor_end) {
             (false, false) => string.contains(self.term.case_folded.as_str()),
@@ -76,11 +97,13 @@ impl MatchTerm<CaseFoldedNfkcNormalizedString> for Term {
     }
 }
 
-impl MatchTerm<SearchableString> for Term {
-    fn matches(&self, value: &SearchableString) -> bool {
+impl Matches<SearchableString> for Term {
+    type Result = bool;
+
+    fn matches(&self, lexicon: &Lexicon, value: &SearchableString) -> bool {
         match &value.searchable {
-            NfkcNormalizedString::NonFolded(inner) => self.matches(inner),
-            NfkcNormalizedString::CaseFolded(inner) => self.matches(inner),
+            NfkcNormalizedString::NonFolded(inner) => self.matches(lexicon, inner),
+            NfkcNormalizedString::CaseFolded(inner) => self.matches(lexicon, inner),
         }
     }
 }
@@ -105,16 +128,37 @@ impl TryFrom<&str> for Qualifier {
     }
 }
 
+impl Display for Qualifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Qualifier::Analysis => f.write_str("analysis"),
+            Qualifier::Gloss => f.write_str("gloss"),
+            Qualifier::Lemma => f.write_str("lemma"),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) enum Operator {
     And,
     Or,
 }
 
-#[derive(Debug)]
 pub(crate) enum Leaf {
     Term { term: Term },
     Qualified { qualifier: Qualifier, term: Term },
+}
+
+impl Debug for Leaf {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Leaf::Term { term } => write!(f, "{term:?}"),
+            Leaf::Qualified { qualifier, term } => f
+                .debug_tuple("Qualified")
+                .field(&format!("{qualifier}:{}", term.term.non_folded.as_str()))
+                .finish(),
+        }
+    }
 }
 
 #[derive(Debug)]

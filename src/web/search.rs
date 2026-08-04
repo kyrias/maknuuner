@@ -86,7 +86,7 @@ async fn search_results(cx: &Cx, query: String, raw: bool) -> Result {
             }
         </div>
         if raw {
-            <div>
+            <div class="raw">
                 "The following query took "
                 (elapsed.as_secs_f64())
                 "s to execute:"
@@ -159,7 +159,7 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
                 }
 
                 if raw {
-                    <div>
+                    <div class="raw">
                         <p>
                             "Result has rank: "
                             (format!("{rank:0.5}"))
@@ -177,7 +177,7 @@ async fn single_definition(definition: &Definition, glosses: &[SearchableString]
     view! {
         <li id=(("def-", definition.id)) class="definition">
             <span lang="ar-PS">(&definition.form)</span>
-            part_of_speech(pos: definition.custom.pos)
+            part_of_speech(pos: definition.pos)
 
             common_fields(transcription: &definition.transcription, glosses: glosses)
         </li>

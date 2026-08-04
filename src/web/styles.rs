@@ -156,6 +156,11 @@ input.search {
         margin-left: 0.75em;
         color: oklch(0.5 0 0);
     }
+
+}
+
+.raw {
+    font-size: 8pt;
 }
 ";
     view! { <style>(topcoat::view::Unescaped::new_unchecked(s))</style> }
