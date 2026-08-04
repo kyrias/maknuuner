@@ -13,6 +13,7 @@ use crate::{
     lexicon::{Definition, Lemma, Lexicon, Phrase, Transcription, pos::PartOfSpeech},
     query::Query,
     string::SearchableString,
+    web::title::Title,
 };
 
 #[query_params(error = bad_request)]
@@ -33,6 +34,8 @@ pub(super) async fn search(cx: &Cx) -> Result {
 
     view! {
         signal query = query;
+
+        (Title::new("Search"))
 
         <h2>"Search"</h2>
 

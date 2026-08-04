@@ -10,6 +10,7 @@ use topcoat::{
 use crate::lexicon::Lexicon;
 
 mod search;
+mod title;
 
 const AMIRI: Font = font! {
     "Amiri",
@@ -59,6 +60,7 @@ async fn root_layout(slot: Result) -> Result {
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1">
+                title::title()
                 topcoat::dev::script()
                 topcoat::runtime::script()
                 topcoat::font::link(font: AMIRI)
