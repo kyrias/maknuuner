@@ -11,25 +11,25 @@ const AMIRI: Font = font! {
         src: url(asset!("assets/Amiri-1.003/Amiri-Regular.ttf")) format("truetype");
         font-style: normal;
         font-weight: normal;
-        font-display: swap;
+        font-display: block;
     }
     @font-face {
         src: url(asset!("assets/Amiri-1.003/Amiri-Italic.ttf")) format("truetype");
         font-style: italic;
         font-weight: normal;
-        font-display: swap;
+        font-display: block;
     }
     @font-face {
         src: url(asset!("assets/Amiri-1.003/Amiri-Bold.ttf")) format("truetype");
         font-style: normal;
         font-weight: bold;
-        font-display: swap;
+        font-display: block;
     }
     @font-face {
         src: url(asset!("assets/Amiri-1.003/Amiri-BoldItalic.ttf")) format("truetype");
         font-style: italic;
         font-weight: bold;
-        font-display: swap;
+        font-display: block;
     }
 };
 
