@@ -51,12 +51,14 @@ impl Lexicon {
 
                 let lemma =
                     Lemma::try_from(entry).context("Failed to convert DatasetEntry to lemma")?;
-                let lemma_id = lemma.lowest_id;
+                let new_id = lemma.lowest_id;
 
                 match lemmas.entry((lemma.root.clone(), lemma.lemma_bw.searchable.clone(), pos)) {
                     HMEntry::Occupied(occupied) => {
-                        occupied.into_mut().merge(lemma).with_context(|| {
-                            format!("Failed to merge new lemma into existing lemma for {lemma_id}",)
+                        let existing = occupied.into_mut();
+                        let existing_id = existing.lowest_id;
+                        existing.merge(lemma).with_context(|| {
+                            format!("Failed to merge new lemma ({new_id}) into existing lemma ({existing_id})",)
                         })?;
                     }
                     HMEntry::Vacant(vacant) => {
