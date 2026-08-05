@@ -153,7 +153,7 @@ input.search {
     .form-header {
         display: inline flex;
         align-items: baseline;
-        gap: 0.75em;
+        column-gap: 0.75em;
         flex-wrap: wrap;
     }
 
@@ -161,7 +161,7 @@ input.search {
         & .list {
             display: inline flex;
             align-items: baseline;
-            gap: 0.4em;
+            column-gap: 0.4em;
             flex-wrap: wrap;
 
         }
