@@ -55,8 +55,7 @@ fn get_dataset() -> Result<()> {
         info!("Extracting dataset");
         let mut zip = File::open(&maknuune_archive_path)
             .map_err(anyhow::Error::from)
-            .map(|f| ZipArchive::new(f).map_err(anyhow::Error::from))
-            .flatten()
+            .and_then(|f| ZipArchive::new(f).map_err(anyhow::Error::from))
             .context("Could not open dataset archive")?;
         zip.extract(asset_dir())
             .context("Could not extract dataset archive")?;
@@ -83,8 +82,7 @@ fn get_font() -> Result<()> {
         info!("Extracting font");
         let mut zip = File::open(&font_archive_path)
             .map_err(anyhow::Error::from)
-            .map(|f| ZipArchive::new(f).map_err(anyhow::Error::from))
-            .flatten()
+            .and_then(|f| ZipArchive::new(f).map_err(anyhow::Error::from))
             .context("Could not open font archive")?;
         zip.extract(asset_dir())
             .context("Could not extract font archive")?;
@@ -112,7 +110,7 @@ fn build() -> Result<()> {
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let status = Command::new(cargo)
         .current_dir(project_root())
-        .args(&["build", "--release"])
+        .args(["build", "--release"])
         .status()
         .context("Could not execute cargo")?;
     if !status.success() {
