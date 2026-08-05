@@ -225,21 +225,19 @@ async fn single_phrase(phrase: &Phrase) -> Result {
 async fn transcription(trans: &Transcription) -> Result {
     view! {
         <span class="transcription" title="IPA transcription">
-            <span>"("</span>
-            <span class="list">
-                let num = trans.ipa.len();
-                for (idx, ipa) in trans.ipa.iter().enumerate() {
-                    <span>
-                        "/\u{2060}"
-                        (ipa)
-                        "\u{2060}/"
-                    </span>
-                    if (idx + 1) < num {
-                        ", "
-                    }
+            "("
+            let num = trans.ipa.len();
+            for (idx, ipa) in trans.ipa.iter().enumerate() {
+                <span>
+                    "/\u{2060}"
+                    (ipa)
+                    "\u{2060}/"
+                </span>
+                if (idx + 1) < num {
+                    ", "
                 }
-            </span>
-            <span>")"</span>
+            }
+            ")"
         </span>
     }
 }

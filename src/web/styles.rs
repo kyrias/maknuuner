@@ -161,23 +161,17 @@ input.search {
     }
 
     .form-header {
-        display: inline flex;
-        align-items: baseline;
-        column-gap: 0.75em;
-        flex-wrap: wrap;
-
         & [lang|=ar] {
             font-size: 1.5em;
+        }
+
+        & > :not(:first-child) {
+            margin-left: 0.75em;
         }
     }
 
     .transcription, .msa-glosses {
         & .list {
-            display: inline flex;
-            align-items: baseline;
-            column-gap: 0.4em;
-            flex-wrap: wrap;
-
         }
 
         & > :first-child {
