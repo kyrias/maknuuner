@@ -1,0 +1,13 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+anyhow = "1.0.104"
+reqwest = { version = "0.13.4", features = ["blocking"] }
+topcoat-asset = { version = "0.5.0", features = ["bundler"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["std", "fmt", "ansi"] }
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
