@@ -9,7 +9,7 @@ use compact_str::ToCompactString;
 use crate::{
     lexicon::lemma::DatasetEntry,
     query::{self, Matches},
-    string::{NonFoldedNfkcNormalizedString, SearchableString},
+    string::{NfkcNormalizedString, NonFoldedNfkcNormalizedString},
     tf_idf::{DocumentTermFrequencies, InverseDocumentFrequencies, Rank, ToTerms},
 };
 
@@ -37,7 +37,8 @@ impl Lexicon {
         // Group the raw dataset entries by root, lemma, and part of speech.
         let lemmas = {
             let mut lemmas =
-                HashMap::<(Root, SearchableString, NonFoldedNfkcNormalizedString), Lemma>::new();
+                HashMap::<(Root, NfkcNormalizedString, NonFoldedNfkcNormalizedString), Lemma>::new(
+                );
             for entry in reader.deserialize::<DatasetEntry>() {
                 let entry = entry.context("Failed to deserialize lexicon entry")?;
                 let Some(entry) = patch_entry(entry).context("Failed to patch entry")? else {
@@ -52,7 +53,7 @@ impl Lexicon {
                     Lemma::try_from(entry).context("Failed to convert DatasetEntry to lemma")?;
                 let lemma_id = lemma.lowest_id;
 
-                match lemmas.entry((lemma.root.clone(), lemma.lemma.clone(), pos)) {
+                match lemmas.entry((lemma.root.clone(), lemma.lemma_bw.searchable.clone(), pos)) {
                     HMEntry::Occupied(occupied) => {
                         occupied.into_mut().merge(lemma).with_context(|| {
                             format!("Failed to merge new lemma into existing lemma for {lemma_id}",)

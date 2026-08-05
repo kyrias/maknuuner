@@ -123,6 +123,20 @@ impl NfkcNormalizedString {
     }
 }
 
+impl Hash for NfkcNormalizedString {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state);
+    }
+}
+
+impl PartialEq for NfkcNormalizedString {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl Eq for NfkcNormalizedString {}
+
 /// Non-folded NFKC normalized string type.
 ///
 /// Every string in the application that should be searchable should be built on top of this
