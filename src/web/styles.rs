@@ -187,6 +187,8 @@ input.search {
 
             & span {
                 text-decoration: underline;
+                text-decoration-thickness: 0.08em;
+                text-underline-offset: 0.1em;
             }
         }
     }
