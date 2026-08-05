@@ -312,6 +312,10 @@ async fn glosses_msa(glosses: &[SearchableString]) -> Result {
                 <span class="list">
                     for (idx, gloss) in glosses.iter().enumerate() {
                         <span>
+                            if glosses.len() > 1 {
+                                (idx + 1)
+                                ". "
+                            }
                             <span lang="ar-001" dir="rtl">(gloss)</span>
                             if (idx + 1) < num {
                                 ", "
