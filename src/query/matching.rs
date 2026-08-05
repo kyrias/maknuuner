@@ -43,7 +43,7 @@ impl Matches<Lemma> for Leaf {
     fn matches(&self, value: &Lemma) -> bool {
         match self {
             Leaf::Term { term } => {
-                term.matches(&*value.root)
+                term.matches(&value.root)
                     || term.matches(&value.lemma)
                     || term.matches(&value.lemma_search)
             }

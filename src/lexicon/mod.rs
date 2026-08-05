@@ -13,7 +13,7 @@ use crate::{
     tf_idf::{DocumentTermFrequencies, InverseDocumentFrequencies, Rank, ToTerms},
 };
 
-pub(crate) use lemma::{Definition, Lemma, Phrase, Root, Transcription};
+pub(crate) use lemma::{Definition, Lemma, Phrase, Transcription};
 
 mod lemma;
 mod phonetics;
@@ -36,9 +36,14 @@ impl Lexicon {
 
         // Group the raw dataset entries by root, lemma, and part of speech.
         let lemmas = {
-            let mut lemmas =
-                HashMap::<(Root, NfkcNormalizedString, NonFoldedNfkcNormalizedString), Lemma>::new(
-                );
+            let mut lemmas = HashMap::<
+                (
+                    NfkcNormalizedString,
+                    NfkcNormalizedString,
+                    NonFoldedNfkcNormalizedString,
+                ),
+                Lemma,
+            >::new();
             for entry in reader.deserialize::<DatasetEntry>() {
                 let entry = entry.context("Failed to deserialize lexicon entry")?;
                 let Some(entry) = patch_entry(entry).context("Failed to patch entry")? else {
@@ -53,7 +58,11 @@ impl Lexicon {
                     Lemma::try_from(entry).context("Failed to convert DatasetEntry to lemma")?;
                 let new_id = lemma.lowest_id;
 
-                match lemmas.entry((lemma.root.clone(), lemma.lemma_bw.searchable.clone(), pos)) {
+                match lemmas.entry((
+                    lemma.root.searchable.clone(),
+                    lemma.lemma_bw.searchable.clone(),
+                    pos,
+                )) {
                     HMEntry::Occupied(occupied) => {
                         let existing = occupied.into_mut();
                         let existing_id = existing.lowest_id;

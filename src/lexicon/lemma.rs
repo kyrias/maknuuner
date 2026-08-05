@@ -1,4 +1,4 @@
-use std::{fmt::Debug, ops::Deref};
+use std::fmt::Debug;
 
 use anyhow::{Context, Result, bail, ensure};
 use compact_str::CompactString;
@@ -38,47 +38,11 @@ pub(super) struct DatasetEntry {
     pub(super) notes: CompactString,
 }
 
-#[derive(Clone, Hash, PartialEq, Eq)]
-pub(crate) enum Root {
-    Root(SearchableString),
-    NonTemplaticWordStem(SearchableString),
-}
-
-impl Root {
-    fn new(root: CompactString, root_ntws: CompactString) -> Self {
-        let middledots = |c| if c == '.' { '·' } else { c };
-
-        if root == "NTWS" {
-            Self::NonTemplaticWordStem(SearchableString::case_folded(
-                root_ntws.chars().map(middledots),
-            ))
-        } else {
-            Self::Root(SearchableString::case_folded(root.chars().map(middledots)))
-        }
-    }
-}
-
-impl Deref for Root {
-    type Target = SearchableString;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            Root::Root(string) | Root::NonTemplaticWordStem(string) => string,
-        }
-    }
-}
-
-impl Debug for Root {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Root({:?})", self.displayable.as_str())
-    }
-}
-
 #[derive(Debug)]
 pub(crate) struct Lemma {
     pub lowest_id: u32,
 
-    pub root: Root,
+    pub root: SearchableString,
     pub root_1: char,
 
     pub lemma: SearchableString,
@@ -125,8 +89,18 @@ impl TryFrom<DatasetEntry> for Lemma {
     type Error = anyhow::Error;
 
     fn try_from(mut entry: DatasetEntry) -> Result<Self> {
-        let root = entry.root.take().unwrap();
-        let root_ntws = entry.root_ntws.take().unwrap_or_default();
+        let root = {
+            let root = entry.root.take().unwrap();
+            let root_ntws = entry.root_ntws.take().unwrap_or_default();
+
+            let middledots = |c| if c == '.' { '·' } else { c };
+            if root == "NTWS" {
+                SearchableString::case_folded(root_ntws.chars().map(middledots))
+            } else {
+                SearchableString::case_folded(root.chars().map(middledots))
+            }
+        };
+
         let root_1 = entry.root_1;
         let lemma = entry.lemma.take().unwrap();
         let lemma_search = entry.lemma_search.take().unwrap();
@@ -134,7 +108,7 @@ impl TryFrom<DatasetEntry> for Lemma {
 
         let mut lemma = Lemma {
             lowest_id: entry.id,
-            root: Root::new(root, root_ntws),
+            root,
             root_1,
             lemma: SearchableString::case_folded(lemma.chars()),
             lemma_search: SearchableString::case_folded(lemma_search.chars()),
