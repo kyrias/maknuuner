@@ -156,8 +156,10 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
                 let examples = lemma.example_usages().collect::<Vec<_>>();
                 if !examples.is_empty() {
                     <div class="examples" lang="ar-PS" dir="rtl">
-                        <span class="example-header">"أمثلة"</span>
-                        ": "
+                        <span class="example-header">
+                            <span>"أمثلة"</span>
+                            ": "
+                        </span>
                         let num = examples.len();
                         for (idx, example) in examples.iter().enumerate() {
                             <span>(example)</span>
@@ -193,8 +195,6 @@ async fn single_definition(definition: &Definition, glosses: &[SearchableString]
                 glosses_msa(glosses: &definition.glosses_msa)
             </div>
             glosses_english(glosses: glosses)
-
-
         </li>
     }
 }

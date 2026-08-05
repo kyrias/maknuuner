@@ -76,13 +76,6 @@ async fn common_styles() -> Result {
     text-wrap: pretty;
 }
 
-:lang(ar) {
-    font-size: 140%;
-}
-
-:lang(en) {
-}
-
 html {
     padding-left: 0.5em;
     padding-right: 0.5em;
@@ -125,8 +118,11 @@ input.search {
     }
 
     h3 {
+        font-size: 2em;
+
         & .root {
-            font-size: 0.9em;
+            font-size: 0.6em;
+            vertical-align: center;
         }
         & .lemma {
             margin-left: 0.5em;
@@ -135,7 +131,7 @@ input.search {
         & a {
             margin-left: 0.75em;
 
-            font-size: 1em;
+            font-size: 0.8em;
             color: oklch(0.5999 0 0 / 40%);
             transition: color 0.2s;
 
@@ -155,6 +151,10 @@ input.search {
         align-items: baseline;
         column-gap: 0.75em;
         flex-wrap: wrap;
+
+        & [lang|=ar] {
+            font-size: 1.5em;
+        }
     }
 
     .transcription, .msa-glosses {
@@ -179,12 +179,15 @@ input.search {
     .examples {
         margin-top: 0.5em;
 
-        font-size: 1em;
         color: oklch(0.5 0 0);
+        font-size: 1.4em;
 
         .example-header {
             font-weight: bold;
-            text-decoration: underline;
+
+            & span {
+                text-decoration: underline;
+            }
         }
     }
 }
