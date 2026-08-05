@@ -37,19 +37,29 @@ pub(super) async fn search(cx: &Cx) -> Result {
 
         (Title::new("Search"))
 
-        <input
-            class="search"
-            :value=$(query.get())
-            @input=$(|e: Event| {
-                let value = e.target.value;
-                query.set(value);
-                raw!(
-                    r#"window.history.replaceState({}, '',
-                    '?' + new URLSearchParams({ "query": ${value}, "raw": ${raw} }
-                ).toString())"#
-                );
-            })
-        >
+        <form action="" method="get" rel="search">
+            <input
+                name="query"
+                class="search"
+                :value=$(query.get())
+                @input=$(|e: Event| {
+                    let value = e.target.value;
+                    query.set(value);
+                    raw!(
+                        r#"
+                            let params = { query: ${value} };
+                            if (${raw}.v) {
+                                params.raw = "true";
+                            }
+                            window.history.replaceState({}, '', '?' + new URLSearchParams(params).toString());
+                        "#
+                    );
+                })
+            >
+            if raw {
+                <input type="hidden" name="raw" value="true">
+            }
+        </form>
 
         search_results(query: $(query.get()), raw: $(raw))
     }
