@@ -158,6 +158,21 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
                     </div>
                 }
 
+                let examples = lemma.example_usages().collect::<Vec<_>>();
+                if !examples.is_empty() {
+                    <div class="examples" lang="ar-PS" dir="rtl">
+                        <span class="example-header">"أمثلة"</span>
+                        ": "
+                        let num = examples.len();
+                        for (idx, example) in examples.iter().enumerate() {
+                            <span>(example)</span>
+                            if (idx + 1) < num {
+                                <span>" \u{2022} "</span>
+                            }
+                        }
+                    </div>
+                }
+
                 if raw {
                     <div class="raw">
                         <p>

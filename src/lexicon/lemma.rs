@@ -111,6 +111,14 @@ impl Lemma {
 
         Ok(())
     }
+
+    pub(crate) fn example_usages(&self) -> impl Iterator<Item = &NfcNormalizedString> {
+        self.definitions
+            .iter()
+            .map(|def| &def.example_usage)
+            .chain(self.phrases.iter().map(|ph| &ph.example_usage))
+            .filter(|s| !s.as_str().is_empty())
+    }
 }
 
 impl TryFrom<DatasetEntry> for Lemma {

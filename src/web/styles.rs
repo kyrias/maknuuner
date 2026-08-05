@@ -73,7 +73,7 @@ async fn common_styles() -> Result {
             ", serif;
     font-size: 14pt;
     line-height: 1.85;
-    text-wrap: balance;
+    text-wrap: pretty;
 }
 
 :lang(ar) {
@@ -121,7 +121,7 @@ input.search {
 
 .result {
     &:not(:first-child) {
-        margin-top: 0.75em;
+        margin-top: 1em;
     }
 
     h3 {
@@ -176,6 +176,17 @@ input.search {
         color: oklch(0.5 0 0);
     }
 
+    .examples {
+        margin-top: 0.5em;
+
+        font-size: 1em;
+        color: oklch(0.5 0 0);
+
+        .example-header {
+            font-weight: bold;
+            text-decoration: underline;
+        }
+    }
 }
 
 .raw {
