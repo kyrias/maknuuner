@@ -12,12 +12,12 @@ mod search;
 mod styles;
 mod title;
 
-pub(super) async fn start(lexicon: Lexicon) -> anyhow::Result<()> {
+pub(super) async fn start(asset_bundle: AssetBundle, lexicon: Lexicon) -> anyhow::Result<()> {
     topcoat::start(
         Router::builder()
             .discover()
             .app_context(lexicon)
-            .assets(AssetBundle::load().context("Failed to load asset bundle")?)
+            .assets(asset_bundle)
             .build(),
     )
     .await

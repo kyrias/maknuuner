@@ -1,10 +1,12 @@
 use std::{
     collections::{HashMap, hash_map::Entry as HMEntry},
+    fs::File,
     sync::Arc,
 };
 
 use anyhow::{Context as _, Result, ensure};
 use compact_str::ToCompactString;
+use topcoat::asset::{Asset, AssetBundle, asset};
 
 use crate::{
     lexicon::lemma::DatasetEntry,
@@ -26,13 +28,19 @@ pub(crate) struct Lexicon {
 }
 
 impl Lexicon {
-    pub(crate) fn new() -> Result<Self> {
-        const LEXICON: &str = include_str!("../../maknuune-v1.0.1.tsv");
+    pub(crate) fn new(asset_bundle: &AssetBundle) -> Result<Self> {
+        const LEXICON: Asset = asset!("../../assets/maknuune-v1.0.1/maknuune-v1.0.1.tsv");
+
+        let asset = asset_bundle
+            .get(LEXICON.id())
+            .context("Could not get lexicon from asset bundle")?;
+        let lexicon_path = asset_bundle.dir().join(asset.name());
+        let lexicon = File::open(lexicon_path).context("Could not open lexicon file")?;
 
         let mut reader = csv::ReaderBuilder::new()
             .has_headers(true)
             .delimiter(b'\t')
-            .from_reader(LEXICON.as_bytes());
+            .from_reader(lexicon);
 
         // Group the raw dataset entries by root, lemma, and part of speech.
         let lemmas = {
