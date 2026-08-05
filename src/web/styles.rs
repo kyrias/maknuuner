@@ -94,7 +94,7 @@ input {
 }
 
 ol {
-    padding-left: 2em;
+    padding-inline-start: 1lh;
 }
 "
         </style>
