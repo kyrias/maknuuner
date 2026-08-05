@@ -67,7 +67,7 @@ impl ToTerms for Lemma {
             def.form
                 .to_terms()
                 .chain(def.transcription.bw.to_terms())
-                .chain(def.glosses.iter().flat_map(ToTerms::to_terms))
+                .chain(def.glosses_english.iter().flat_map(ToTerms::to_terms))
         });
 
         // Not sure whether it's better to include the phrases or not.  It seems like including

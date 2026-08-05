@@ -107,7 +107,8 @@ async fn page_styles() -> Result {
     let s = "
 input.search {
     margin-top: 0.5em;
-    width: 20em;
+    width: 100%;
+    max-width: 20em;
 }
 
 .results {
@@ -149,11 +150,29 @@ input.search {
         margin-top: 0.5em;
     }
 
-    .pos {
-        margin-left: 0.75em;
+    .form-header {
+        display: inline flex;
+        align-items: baseline;
+        gap: 0.75em;
+        flex-wrap: wrap;
     }
-    .transcription {
-        margin-left: 0.75em;
+
+    .transcription, .msa-glosses {
+        & .list {
+            display: inline flex;
+            align-items: baseline;
+            gap: 0.4em;
+            flex-wrap: wrap;
+
+        }
+
+        & > :first-child {
+            margin-right: 0.1em;
+        }
+        & > :last-child {
+            margin-left: 0.1em;
+        }
+
         color: oklch(0.5 0 0);
     }
 

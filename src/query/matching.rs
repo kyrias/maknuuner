@@ -66,7 +66,10 @@ impl Matches<Definition> for Leaf {
             Leaf::Term { term } => {
                 term.matches(&value.form)
                     || term.matches(&value.transcription.bw)
-                    || value.glosses.iter().any(|gloss| term.matches(gloss))
+                    || value
+                        .glosses_english
+                        .iter()
+                        .any(|gloss| term.matches(gloss))
             }
             Leaf::Qualified { qualifier, term } => match qualifier {
                 Qualifier::Lemma => {
@@ -75,7 +78,10 @@ impl Matches<Definition> for Leaf {
                         || term.matches(&value.transcription.caphipp)
                 }
                 Qualifier::Analysis => term.matches(&value.analysis),
-                Qualifier::Gloss => value.glosses.iter().any(|gloss| term.matches(gloss)),
+                Qualifier::Gloss => value
+                    .glosses_english
+                    .iter()
+                    .any(|gloss| term.matches(gloss)),
             },
         }
     }
@@ -87,7 +93,10 @@ impl Matches<Phrase> for Leaf {
             Leaf::Term { term } => {
                 term.matches(&value.form)
                     || term.matches(&value.transcription.bw)
-                    || value.glosses.iter().any(|gloss| term.matches(gloss))
+                    || value
+                        .glosses_english
+                        .iter()
+                        .any(|gloss| term.matches(gloss))
             }
             Leaf::Qualified { qualifier, term } => match qualifier {
                 Qualifier::Lemma => {
@@ -96,7 +105,10 @@ impl Matches<Phrase> for Leaf {
                         || term.matches(&value.transcription.caphipp)
                 }
                 Qualifier::Analysis => false,
-                Qualifier::Gloss => value.glosses.iter().any(|gloss| term.matches(gloss)),
+                Qualifier::Gloss => value
+                    .glosses_english
+                    .iter()
+                    .any(|gloss| term.matches(gloss)),
             },
         }
     }

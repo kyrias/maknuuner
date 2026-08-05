@@ -155,8 +155,8 @@ pub(crate) struct Definition {
     /// Parsed form of the analysis field.
     pub pos: Option<PartOfSpeech>,
 
-    pub glosses: SmallVec<[SearchableString; 1]>,
-    pub gloss_msa: NfcNormalizedString,
+    pub glosses_english: SmallVec<[SearchableString; 1]>,
+    pub glosses_msa: SmallVec<[SearchableString; 1]>,
 
     pub example_usage: NfcNormalizedString,
     pub notes: NfcNormalizedString,
@@ -165,6 +165,9 @@ pub(crate) struct Definition {
 impl Definition {
     /// Parse a gloss string into a vector of glosses, removing the auto-generated entry suffix if
     /// present.
+    ///
+    /// The GLOSS field contains a semicolon-separated list of glosses, but an entry may contain
+    /// semicolons within a quoted string.
     fn parse_glosses(gloss: &str) -> SmallVec<[SearchableString; 1]> {
         let mut out = SmallVec::new();
 
@@ -250,6 +253,12 @@ impl TryFrom<DatasetEntry> for Definition {
         } = entry;
 
         let glosses = Self::parse_glosses(&gloss);
+        let glosses_msa = gloss_msa
+            .split('#')
+            .map(|g| g.trim())
+            .filter(|g| !g.is_empty())
+            .map(|g| SearchableString::non_folded(g.chars()))
+            .collect();
         let pos = Self::parse_pos(id, &analysis);
 
         Ok(Self {
@@ -259,8 +268,8 @@ impl TryFrom<DatasetEntry> for Definition {
                 .with_context(|| format!("Failed to parse transcriptions of entry {id}"))?,
             analysis: CaseFoldedNfkcNormalizedString::interned(analysis.chars()),
             pos,
-            glosses,
-            gloss_msa: NfcNormalizedString::interned(gloss_msa.chars()),
+            glosses_english: glosses,
+            glosses_msa,
             example_usage: NfcNormalizedString::interned(example_usage.chars()),
             notes: NfcNormalizedString::interned(notes.chars()),
         })
@@ -297,8 +306,8 @@ pub(crate) struct Phrase {
     pub form: SearchableString,
     pub transcription: Transcription,
 
-    pub glosses: SmallVec<[SearchableString; 1]>,
-    pub gloss_msa: NfcNormalizedString,
+    pub glosses_english: SmallVec<[SearchableString; 1]>,
+    pub glosses_msa: SmallVec<[SearchableString; 1]>,
 
     pub example_usage: NfcNormalizedString,
     pub notes: NfcNormalizedString,
@@ -331,14 +340,20 @@ impl TryFrom<DatasetEntry> for Phrase {
         } = entry;
 
         let glosses = Definition::parse_glosses(&gloss);
+        let glosses_msa = gloss_msa
+            .split('#')
+            .map(|g| g.trim())
+            .filter(|g| !g.is_empty())
+            .map(|g| SearchableString::non_folded(g.chars()))
+            .collect();
 
         Ok(Self {
             id,
             form: SearchableString::case_folded(form.chars()),
             transcription: Transcription::new(caphipp, form_bw)
                 .with_context(|| format!("Failed to parse transcriptions of entry {id}"))?,
-            glosses,
-            gloss_msa: NfcNormalizedString::interned(gloss_msa.chars()),
+            glosses_english: glosses,
+            glosses_msa,
             example_usage: NfcNormalizedString::interned(example_usage.chars()),
             notes: NfcNormalizedString::interned(notes.chars()),
         })

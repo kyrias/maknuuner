@@ -103,8 +103,8 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
     let mut previous_glosses = lemma
         .definitions
         .first()
-        .map(|def| &def.glosses)
-        .or_else(|| lemma.phrases.first().map(|ph| &ph.glosses))
+        .map(|def| &def.glosses_english)
+        .or_else(|| lemma.phrases.first().map(|ph| &ph.glosses_english))
         .unwrap();
 
     let root_title = match lemma.root {
@@ -134,13 +134,13 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
                         <ol>
                             for (idx, entry) in lemma.definitions.iter().enumerate() {
                                 let glosses = if idx == 0
-                                    || previous_glosses != &entry.glosses
+                                    || previous_glosses != &entry.glosses_english
                                 {
-                                    entry.glosses.as_slice()
+                                    entry.glosses_english.as_slice()
                                 } else {
                                     &[]
                                 };
-                                let _ = previous_glosses = &entry.glosses;
+                                let _ = previous_glosses = &entry.glosses_english;
                                 single_definition(definition: entry, glosses: glosses)
                             }
                         </ol>
@@ -176,10 +176,13 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
 async fn single_definition(definition: &Definition, glosses: &[SearchableString]) -> Result {
     view! {
         <li id=(("def-", definition.id)) class="definition">
-            <span lang="ar-PS">(&definition.form)</span>
-            part_of_speech(pos: definition.pos)
-
-            common_fields(transcription: &definition.transcription, glosses: glosses)
+            <div class="form-header">
+                <span lang="ar-PS">(&definition.form)</span>
+                transcription(trans: &definition.transcription)
+                part_of_speech(pos: definition.pos)
+                glosses_msa(glosses: &definition.glosses_msa)
+            </div>
+            glosses_english(glosses: glosses)
         </li>
     }
 }
@@ -188,39 +191,36 @@ async fn single_definition(definition: &Definition, glosses: &[SearchableString]
 async fn single_phrase(phrase: &Phrase) -> Result {
     view! {
         <li id=(("ph-", phrase.id)) class="phrase">
-            <span lang="ar-PS">(&phrase.form)</span>
-            common_fields(
-                transcription: &phrase.transcription,
-                glosses: &phrase.glosses
-            )
+            <div class="form-header">
+                <span lang="ar-PS">(&phrase.form)</span>
+                transcription(trans: &phrase.transcription)
+                glosses_msa(glosses: &phrase.glosses_msa)
+            </div>
+            glosses_english(glosses: &phrase.glosses_english)
         </li>
     }
 }
 
 #[component]
-async fn common_fields(transcription: &Transcription, glosses: &[SearchableString]) -> Result {
-    let num = transcription.ipa.len();
+async fn transcription(trans: &Transcription) -> Result {
     view! {
-        <span class="transcription">
-            "("
-            for (idx, ipa) in transcription.ipa.iter().enumerate() {
-                "/\u{2060}"
-                (ipa)
-                "\u{2060}/"
-                if (idx + 1) < num {
-                    ", "
+        <span class="transcription" title="IPA transcription">
+            <span>"("</span>
+            <span class="list">
+                let num = trans.ipa.len();
+                for (idx, ipa) in trans.ipa.iter().enumerate() {
+                    <span>
+                        "/\u{2060}"
+                        (ipa)
+                        "\u{2060}/"
+                    </span>
+                    if (idx + 1) < num {
+                        ", "
+                    }
                 }
-            }
-            ")"
+            </span>
+            <span>")"</span>
         </span>
-
-        if !glosses.is_empty() {
-            <ol class="glosses">
-                for gloss in glosses {
-                    <li>(gloss)</li>
-                }
-            </ol>
-        }
     }
 }
 
@@ -286,5 +286,42 @@ async fn part_of_speech(pos: Option<PartOfSpeech>) -> Result {
             " "
             (feature?)
         </span>
+    }
+}
+
+#[component]
+async fn glosses_msa(glosses: &[SearchableString]) -> Result {
+    view! {
+        if !glosses.is_empty() {
+            <span class="msa-glosses">
+                let num = glosses.len();
+                <span>"("</span>
+                "msa. "
+                <span class="list">
+                    for (idx, gloss) in glosses.iter().enumerate() {
+                        <span>
+                            <span lang="ar-PS" dir="rtl">(gloss)</span>
+                            if (idx + 1) < num {
+                                ", "
+                            }
+                        </span>
+                    }
+                </span>
+                <span>")"</span>
+            </span>
+        }
+    }
+}
+
+#[component]
+async fn glosses_english(glosses: &[SearchableString]) -> Result {
+    view! {
+        if !glosses.is_empty() {
+            <ol class="glosses">
+                for gloss in glosses {
+                    <li>(gloss)</li>
+                }
+            </ol>
+        }
     }
 }
