@@ -154,7 +154,11 @@ pub(crate) struct NonFoldedNfkcNormalizedString(String);
 
 impl NonFoldedNfkcNormalizedString {
     fn normalize<T: IntoIterator<Item = char>>(string: T) -> CompactString {
-        string.into_iter().nfkc().collect::<CompactString>()
+        string
+            .into_iter()
+            .nfkc()
+            .filter(|c| !arabic_vowel_marker(*c))
+            .collect::<CompactString>()
     }
 
     pub(crate) fn interned<T: IntoIterator<Item = char>>(string: T) -> Self {
@@ -197,6 +201,7 @@ impl CaseFoldedNfkcNormalizedString {
             .into_iter()
             .default_case_fold()
             .nfkc()
+            .filter(|c| !arabic_vowel_marker(*c))
             .collect::<CompactString>()
     }
 
@@ -284,4 +289,8 @@ impl topcoat::view::NodeViewParts for &SearchableString {
     ) {
         self.displayable.into_view_parts(cx, parts);
     }
+}
+
+fn arabic_vowel_marker(c: char) -> bool {
+    ('\u{064B}'..='\u{065F}').contains(&c)
 }
