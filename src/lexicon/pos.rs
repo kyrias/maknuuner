@@ -1,11 +1,12 @@
-use std::{ops::Not, str::FromStr};
+use std::{fmt::Debug, ops::Not, str::FromStr};
 
 use anyhow::{Context, Error, bail};
 
 pub(crate) mod noun {
+
     use super::*;
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub(crate) enum NounFeature {
         Singular,
         MasculineSingular,
@@ -39,7 +40,22 @@ pub(crate) mod noun {
         }
     }
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    impl Debug for NounFeature {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let s = match self {
+                NounFeature::Singular => "Singular",
+                NounFeature::MasculineSingular => "Masculine Singular",
+                NounFeature::FeminineSingular => "Feminine Singular",
+                NounFeature::Dual => "Dual",
+                NounFeature::Plural => "Plural",
+                NounFeature::MasculinePlural => "Masculine Plural",
+                NounFeature::FemininePlural => "Feminine Plural",
+            };
+            f.write_str(s)
+        }
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub(crate) enum Noun {
         Plain(Option<NounFeature>),
         /// Active participle deverbal noun
@@ -79,12 +95,32 @@ pub(crate) mod noun {
             Ok(constructor(feature))
         }
     }
+
+    impl Debug for Noun {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let (s, nf) = match self {
+                Noun::Plain(noun_feature) => ("", noun_feature),
+                Noun::Active(noun_feature) => (" Active", noun_feature),
+                Noun::Passive(noun_feature) => (" Passive", noun_feature),
+                Noun::Proper(noun_feature) => (" Proper", noun_feature),
+                Noun::Number(noun_feature) => (" Number", noun_feature),
+                Noun::Quantifier(noun_feature) => (" Quantifier", noun_feature),
+            };
+            f.write_str("Noun")?;
+            f.write_str(s)?;
+            if let Some(nf) = nf {
+                write!(f, " // {:?}", nf)?;
+            }
+
+            Ok(())
+        }
+    }
 }
 
 pub(crate) mod verb {
     use super::*;
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub(crate) enum VerbFeature {
         Perfective,
         Command,
@@ -110,7 +146,18 @@ pub(crate) mod verb {
         }
     }
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    impl Debug for VerbFeature {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let s = match self {
+                VerbFeature::Perfective => "Perfective",
+                VerbFeature::Command => "Command",
+                VerbFeature::Imperfective => "Imperfective",
+            };
+            f.write_str(s)
+        }
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub(crate) enum Verb {
         Plain(VerbFeature),
         /// Non-inflectional verb, also called frozen verbs
@@ -136,9 +183,26 @@ pub(crate) mod verb {
             Ok(verb)
         }
     }
+
+    impl Debug for Verb {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let (s, vf) = match self {
+                Verb::Plain(verb_feature) => ("", Some(verb_feature)),
+                Verb::Nominal => (" Nominal", None),
+                Verb::Pseudo => (" Pseudo", None),
+            };
+            f.write_str("Verb")?;
+            f.write_str(s)?;
+            if let Some(vf) = vf {
+                write!(f, " // {:?}", vf)?;
+            }
+
+            Ok(())
+        }
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum PartOfSpeech {
     Noun(noun::Noun),
     Verb(verb::Verb),
@@ -158,5 +222,14 @@ impl FromStr for PartOfSpeech {
         };
 
         Ok(pos)
+    }
+}
+
+impl Debug for PartOfSpeech {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PartOfSpeech::Noun(noun) => write!(f, "{:?}", noun),
+            PartOfSpeech::Verb(verb) => write!(f, "{:?}", verb),
+        }
     }
 }

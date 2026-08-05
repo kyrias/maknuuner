@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{fmt::Debug, ops::Deref};
 
 use anyhow::{Context, Result, bail, ensure};
 use compact_str::CompactString;
@@ -38,7 +38,7 @@ pub(super) struct DatasetEntry {
     pub(super) notes: CompactString,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub(crate) enum Root {
     Root(SearchableString),
     NonTemplaticWordStem(SearchableString),
@@ -65,6 +65,12 @@ impl Deref for Root {
         match self {
             Root::Root(string) | Root::NonTemplaticWordStem(string) => string,
         }
+    }
+}
+
+impl Debug for Root {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Root({:?})", self.displayable.as_str())
     }
 }
 

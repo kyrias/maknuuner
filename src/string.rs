@@ -76,9 +76,7 @@ pub(crate) struct NfcNormalizedString(String);
 
 impl Debug for NfcNormalizedString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("NfcNormalizedString")
-            .field(&self.as_str())
-            .finish()
+        write!(f, "NfcNormalizedString({:?})", self.0.as_str())
     }
 }
 
@@ -160,9 +158,7 @@ impl NonFoldedNfkcNormalizedString {
 
 impl Debug for NonFoldedNfkcNormalizedString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("NonFoldedNfkcNormalizedString")
-            .field(&self.as_str())
-            .finish()
+        write!(f, "NonFoldedNfkcNormalizedString({:?})", self.0.as_str())
     }
 }
 
@@ -205,9 +201,7 @@ impl CaseFoldedNfkcNormalizedString {
 
 impl Debug for CaseFoldedNfkcNormalizedString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("CaseFoldedNfkcNormalizedString")
-            .field(&self.as_str())
-            .finish()
+        write!(f, "CaseFoldedNfkcNormalizedString({:?})", self.0.as_str())
     }
 }
 
@@ -250,9 +244,7 @@ impl SearchableString {
 
 impl Debug for SearchableString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("SearchableString")
-            .field(&self.displayable.as_str())
-            .finish()
+        write!(f, "SearchableString({:?})", self.displayable.as_str())
     }
 }
 
