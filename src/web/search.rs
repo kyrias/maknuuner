@@ -37,8 +37,6 @@ pub(super) async fn search(cx: &Cx) -> Result {
 
         (Title::new("Search"))
 
-        <h2>"Search"</h2>
-
         <input
             class="search"
             :value=$(query.get())
@@ -156,7 +154,7 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
                 let examples = lemma.example_usages().collect::<Vec<_>>();
                 if !examples.is_empty() {
                     <div class="examples" lang="ar-PS" dir="rtl">
-                        <span class="example-header">
+                        <span class="example-header" title="Examples">
                             <span>"أمثلة"</span>
                             ": "
                         </span>
@@ -267,22 +265,30 @@ async fn part_of_speech(pos: Option<PartOfSpeech>) -> Result {
         }
     }
 
-    let (pos, feature) = match pos {
+    let (pos, pos_tooltip, feature) = match pos {
         PartOfSpeech::Noun(noun) => {
-            let (kind, nf) = match noun {
-                Noun::Plain(nf) => ("Noun", nf),
-                Noun::Active(nf) => ("Noun (active participle deverbal)", nf),
-                Noun::Passive(nf) => ("Noun (passive participle deverbal)", nf),
-                Noun::Proper(nf) => ("Noun (proper)", nf),
-                Noun::Number(nf) => ("Noun (number)", nf),
-                Noun::Quantifier(nf) => ("Noun (quantifier)", nf),
+            let (kind, pos_tooltip, nf) = match noun {
+                Noun::Plain(nf) => ("Noun", None, nf),
+                Noun::Active(nf) => (
+                    "Noun (act. part.)",
+                    Some("Active participle deverbal noun"),
+                    nf,
+                ),
+                Noun::Passive(nf) => (
+                    "Noun (pass. part.)",
+                    Some("Passive participle deverbal noun"),
+                    nf,
+                ),
+                Noun::Proper(nf) => ("Noun (proper)", None, nf),
+                Noun::Number(nf) => ("Noun (number)", None, nf),
+                Noun::Quantifier(nf) => ("Noun (quantifier)", None, nf),
             };
-            (kind, nf.map(noun_feature))
+            (kind, pos_tooltip, nf.map(noun_feature))
         }
         PartOfSpeech::Verb(verb) => match verb {
-            Verb::Plain(vf) => ("Verb", Some(verb_feature(vf))),
-            Verb::Nominal => ("Verb (nominal)", None),
-            Verb::Pseudo => ("Verb (pseudo)", None),
+            Verb::Plain(vf) => ("Verb", None, Some(verb_feature(vf))),
+            Verb::Nominal => ("Verb (nominal)", None, None),
+            Verb::Pseudo => ("Verb (pseudo)", None, None),
         },
     };
 
@@ -294,7 +300,7 @@ async fn part_of_speech(pos: Option<PartOfSpeech>) -> Result {
 
     view! {
         <span class="pos">
-            (pos)
+            <span title=(pos_tooltip)>(pos)</span>
             " "
             (feature?)
         </span>
@@ -308,7 +314,7 @@ async fn glosses_msa(glosses: &[SearchableString]) -> Result {
             <span class="msa-glosses">
                 let num = glosses.len();
                 <span>"("</span>
-                "msa. "
+                <span title="Modern Standard Arabic">"msa. "</span>
                 <span class="list">
                     for (idx, gloss) in glosses.iter().enumerate() {
                         <span>

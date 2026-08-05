@@ -79,6 +79,20 @@ async fn common_styles() -> Result {
 html {
     padding-left: 0.5em;
     padding-right: 0.5em;
+
+    background-color: #eee;
+}
+
+body {
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 1em;
+    padding: 1em;
+
+    border: 1px solid #ccc;
+    border-top: none;
+    background-color: #fcfcfc;
 }
 
 input {
@@ -101,7 +115,6 @@ async fn page_styles() -> Result {
 input.search {
     margin-top: 0.5em;
     width: 100%;
-    max-width: 20em;
 }
 
 .results {
@@ -109,6 +122,7 @@ input.search {
 
     & .inner {
         padding-left: 0.75em;
+        padding-right: 0.75em;
     }
 }
 
