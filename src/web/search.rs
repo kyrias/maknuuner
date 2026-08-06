@@ -38,6 +38,8 @@ pub(super) async fn search(cx: &Cx) -> Result {
             <input
                 name="query"
                 class="search"
+                title="Search"
+                placeholder="Search"
                 :value=$(query.get())
                 @input=$(|e: Event| {
                     let value = e.target.value;
