@@ -34,7 +34,7 @@ pub(super) async fn search(cx: &Cx) -> Result {
 
         (Title::new("Search"))
 
-        <form action="" method="get" rel="search">
+        <form action="" method="get" rel="search" onsubmit="return false;">
             <input
                 name="query"
                 class="search"
