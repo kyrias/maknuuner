@@ -72,11 +72,17 @@ async fn search_results(cx: &Cx, query: String, raw: bool) -> Result {
     let results = lexicon.search(&query, 100);
     let elapsed = instant.elapsed();
 
+    let total_results = results.total_results();
+    let returned_results = results.returned_results();
+
     view! {
         <div class="results">
             for (rank, lemma) in results.into_iter() {
                 result(lemma: lemma, rank: rank, raw: raw)
             }
+        </div>
+        <div class="result-count">
+            "Displaying " (returned_results) " out of "(total_results) " results."
         </div>
         if raw {
             <div class="raw">

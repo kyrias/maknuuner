@@ -146,6 +146,7 @@ impl Lexicon {
 pub(crate) struct ResultSet<'a> {
     inner: BTreeSet<(NotNan<f64>, &'a Lemma)>,
     max_results: usize,
+    total_results: usize,
 }
 
 impl<'a> ResultSet<'a> {
@@ -153,16 +154,26 @@ impl<'a> ResultSet<'a> {
         Self {
             inner: Default::default(),
             max_results,
+            total_results: 0,
         }
     }
 
     fn insert(&mut self, rank: f64, lemma: &'a Lemma) {
         let rank = NotNan::new(rank).unwrap_or_default();
         self.inner.insert((rank, lemma));
+        self.total_results += 1;
 
         while self.inner.len() > self.max_results {
             self.inner.pop_first();
         }
+    }
+
+    pub(crate) fn total_results(&self) -> usize {
+        self.total_results
+    }
+
+    pub(crate) fn returned_results(&self) -> usize {
+        self.inner.len()
     }
 
     pub(crate) fn into_iter(self) -> impl Iterator<Item = (f64, &'a Lemma)> {

@@ -202,6 +202,10 @@ input.search {
     }
 }
 
+.result-count {
+    margin-top: 1em;
+}
+
 .raw {
     font-size: 8pt;
 }
