@@ -96,8 +96,8 @@ body {
 }
 
 input {
-    padding-left: 0.3em;
-    padding-right: 0.3em;
+    padding-left: 0.4em;
+    padding-right: 0.4em;
 }
 
 ol {
