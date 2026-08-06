@@ -36,6 +36,7 @@ pub(super) async fn search(cx: &Cx) -> Result {
 
         <form action="" method="get" rel="search" onsubmit="return false;">
             <input
+                type="search"
                 name="query"
                 class="search"
                 title="Search"
