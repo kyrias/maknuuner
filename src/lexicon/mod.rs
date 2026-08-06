@@ -91,23 +91,21 @@ impl Lexicon {
                 lemma.phrases.sort_by_key(|entry| entry.id);
             }
 
-            // Sort lemmas by lowest ID among entries and phrases to have a consistent order.
-            //
-            // This is only necessary since we don't perform the ranking step of a proper search
-            // engine.
-            let mut lemmas = lemmas.into_values().collect::<Vec<_>>();
-            lemmas.sort_by_key(|lemma| lemma.lowest_id);
-
             lemmas
         };
 
+        // Calculate TF-IDF vectors at the same time as we convert the HashMap of Lemmas into a
+        // vector.
         let mut idf = InverseDocumentFrequencies::new();
         let mut term_freqs = HashMap::new();
-        for lemma in &lemmas {
-            let tfs = DocumentTermFrequencies::from(lemma);
-            idf.add_document(&tfs);
-            term_freqs.insert(lemma.lowest_id, tfs);
-        }
+        let lemmas = lemmas
+            .into_values()
+            .inspect(|lemma| {
+                let tfs = DocumentTermFrequencies::from(lemma);
+                idf.add_document(&tfs);
+                term_freqs.insert(lemma.lowest_id, tfs);
+            })
+            .collect();
 
         Ok(Self {
             lemmas: Arc::new(lemmas),
