@@ -26,10 +26,7 @@ struct SearchQuery {
 pub(super) async fn search(cx: &Cx) -> Result {
     let params = query_params::<SearchQuery>(cx)?;
 
-    let query = params
-        .query
-        .clone()
-        .unwrap_or_else(|| r#"gloss:^money analysis:"^NOUN:P$""#.to_string());
+    let query = params.query.clone().unwrap_or_default();
     let raw = params.raw.unwrap_or(false);
 
     view! {
