@@ -38,7 +38,7 @@ pub(super) struct DatasetEntry {
     pub(super) notes: CompactString,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Lemma {
     pub lowest_id: u32,
 
@@ -132,8 +132,7 @@ impl TryFrom<DatasetEntry> for Lemma {
     }
 }
 
-#[allow(unused)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Definition {
     pub id: u32,
 
@@ -264,7 +263,7 @@ impl TryFrom<DatasetEntry> for Definition {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Transcription {
     pub caphipp: NonFoldedNfkcNormalizedString,
     pub bw: NonFoldedNfkcNormalizedString,
@@ -286,8 +285,7 @@ impl Transcription {
     }
 }
 
-#[allow(unused)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Phrase {
     pub id: u32,
 

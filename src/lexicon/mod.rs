@@ -1,11 +1,12 @@
 use std::{
-    collections::{HashMap, hash_map::Entry as HMEntry},
+    collections::{BTreeSet, HashMap, hash_map::Entry as HMEntry},
     fs::File,
     sync::Arc,
 };
 
 use anyhow::{Context as _, Result, ensure};
 use compact_str::ToCompactString;
+use ordered_float::NotNan;
 use topcoat::asset::{Asset, AssetBundle, asset};
 
 use crate::{
@@ -115,11 +116,16 @@ impl Lexicon {
         })
     }
 
-    pub(crate) fn search(&self, query: &query::Query) -> impl Iterator<Item = (&Lemma, f64)> {
-        self.lemmas
-            .iter()
-            .filter(|lemma| query.matches(lemma))
-            .map(|lemma| (lemma, query.rank(self, lemma)))
+    pub(crate) fn search(&self, query: &query::Query, limit: usize) -> ResultSet<'_> {
+        let mut results = ResultSet::new(limit);
+
+        for lemma in self.lemmas.iter() {
+            if query.matches(lemma) {
+                results.insert(query.rank(self, lemma), lemma);
+            }
+        }
+
+        results
     }
 
     /// Calculate the TF-IDF score of a query term against a lemma.
@@ -134,6 +140,36 @@ impl Lexicon {
                 tf * idf
             })
             .sum()
+    }
+}
+
+pub(crate) struct ResultSet<'a> {
+    inner: BTreeSet<(NotNan<f64>, &'a Lemma)>,
+    max_results: usize,
+}
+
+impl<'a> ResultSet<'a> {
+    fn new(max_results: usize) -> Self {
+        Self {
+            inner: Default::default(),
+            max_results,
+        }
+    }
+
+    fn insert(&mut self, rank: f64, lemma: &'a Lemma) {
+        let rank = NotNan::new(rank).unwrap_or_default();
+        self.inner.insert((rank, lemma));
+
+        while self.inner.len() > self.max_results {
+            self.inner.pop_first();
+        }
+    }
+
+    pub(crate) fn into_iter(self) -> impl Iterator<Item = (f64, &'a Lemma)> {
+        self.inner
+            .into_iter()
+            .rev()
+            .map(|(rank, lemma)| (rank.into_inner(), lemma))
     }
 }
 

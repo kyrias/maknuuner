@@ -71,7 +71,7 @@ impl Ord for String {
 ///
 /// Note: NFC normalization is only useful for rendering, it is not appropriate for searching as
 /// semantically equivalent characters aren't necessarily always encoded in the same way.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct NfcNormalizedString(String);
 
 impl Debug for NfcNormalizedString {
@@ -270,6 +270,18 @@ impl Debug for SearchableString {
 impl Hash for SearchableString {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.searchable.as_str().hash(state);
+    }
+}
+
+impl PartialOrd for SearchableString {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for SearchableString {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.searchable.as_str().cmp(other.searchable.as_str())
     }
 }
 

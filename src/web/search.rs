@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, time::Instant};
+use std::time::Instant;
 
 use anyhow::Context;
 use topcoat::{
@@ -69,24 +69,12 @@ async fn search_results(cx: &Cx, query: String, raw: bool) -> Result {
     let lexicon: &Lexicon = app_context(cx);
 
     let instant = Instant::now();
-    let mut results: Vec<_> = lexicon.search(&query).collect();
+    let results = lexicon.search(&query, 100);
     let elapsed = instant.elapsed();
-
-    fn comp_f64(a: &f64, b: &f64) -> Ordering {
-        if a < b {
-            return Ordering::Less;
-        } else if a > b {
-            return Ordering::Greater;
-        }
-        Ordering::Equal
-    }
-    results.sort_by(|(_, a), (_, b)| comp_f64(a, b).reverse());
-
-    let results = results.into_iter().take(100);
 
     view! {
         <div class="results">
-            for (lemma, rank) in results {
+            for (rank, lemma) in results.into_iter() {
                 result(lemma: lemma, rank: rank, raw: raw)
             }
         </div>
