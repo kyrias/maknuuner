@@ -146,7 +146,7 @@ input.search {
             margin-left: 0.75em;
 
             font-size: 0.8em;
-            color: oklch(0.5999 0 0 / 40%);
+            color: oklch(0.5 0 0 / 70%);
             transition: color 0.2s;
 
             text-decoration: none;
@@ -181,13 +181,13 @@ input.search {
             margin-left: 0.1em;
         }
 
-        color: oklch(0.5 0 0);
+        color: oklch(0.45 0 0);
     }
 
     .examples {
         margin-top: 0.5em;
 
-        color: oklch(0.5 0 0);
+        color: oklch(0.45 0 0);
         font-size: 1.4em;
 
         .example-header {
