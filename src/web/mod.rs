@@ -8,7 +8,7 @@ use topcoat::{
     context::{Cx, CxBuilder},
     router::{
         Body, IntoResponse, Next, Response, Router, RouterBuilderDiscoverExt, StatusCode,
-        error::{BadRequestError, NotFoundError, not_found, redirect},
+        error::{BadRequestError, NotFoundError, RedirectError, not_found, redirect},
         layer, layout, page, uri,
     },
     view::view,
@@ -106,6 +106,11 @@ async fn root_layer(cx: &mut CxBuilder, body: Body, next: Next<'_>) -> Result<Re
 #[layout("/")]
 async fn root_layout(cx: &Cx, slot: Result) -> Result {
     let content = match slot {
+        // Pass redirects through.
+        Err(error) if error.downcast_ref::<RedirectError>().is_some() => {
+            return Err(error);
+        }
+
         Err(error) if error.downcast_ref::<NotFoundError>().is_some() => {
             tracing::warn!(uri = %uri(cx), "path not found");
             view! {
