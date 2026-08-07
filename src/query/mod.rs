@@ -298,4 +298,21 @@ mod tests {
             Query::Leaf(Leaf::Term { term: "foo".into() }),
         );
     }
+
+    #[test]
+    fn unquoted_terms_cant_contain_quotes() {
+        assert_eq!(
+            Query::parse(r#"foo""#).unwrap(),
+            Query::Leaf(Leaf::Term { term: "foo".into() }),
+        );
+
+        assert_eq!(
+            Query::parse(r#"foo"bar""#).unwrap(),
+            Query::Operator {
+                op: Operator::And,
+                lhs: Box::new(Query::Leaf(Leaf::Term { term: "foo".into() })),
+                rhs: Box::new(Query::Leaf(Leaf::Term { term: "bar".into() })),
+            }
+        );
+    }
 }

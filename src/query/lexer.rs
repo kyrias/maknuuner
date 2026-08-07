@@ -54,10 +54,10 @@ impl<'a> Lexer<'a> {
             return Ok(op);
         }
 
-        // Unquoted terms cannot contain right parens, otherwise grouping doesn't work.
+        // Unquoted terms cannot contain right parens, otherwise grouping doesn't work, or quotes.
         let unquoted = self
             .query
-            .split(|c| [' ', ')'].contains(&c))
+            .split(|c| [' ', ')', '"'].contains(&c))
             .next()
             .unwrap();
         self.query = &self.query[unquoted.len()..];
@@ -85,13 +85,17 @@ impl<'a> Lexer<'a> {
 
         let mut iter = self.query.char_indices().peekable();
         loop {
-            let idx = match iter.next().context("EOF parsing string")? {
-                (idx, '"') => idx,
-                (_, '\\') => {
+            let idx = match iter.next() {
+                Some((idx, '"')) => idx,
+                Some((_, '\\')) => {
                     iter.next().context("EOF parsing escape sequence")?;
                     continue;
                 }
-                _ => continue,
+                Some(_) => continue,
+
+                // Ignore unterminated strings.  If we don't do this we throw errors while the user
+                // is still typing the query.
+                None => return Ok(Token::Eof),
             };
 
             let s = &self.query[..idx];
