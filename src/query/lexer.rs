@@ -50,7 +50,7 @@ impl<'a> Lexer<'a> {
             return Ok(qualifier);
         }
 
-        if let Some(op) = self.operator()? {
+        if let Some(op) = self.operator() {
             return Ok(op);
         }
 
@@ -117,22 +117,22 @@ impl<'a> Lexer<'a> {
         Ok(Some(Token::Qualifier(prefix)))
     }
 
-    fn operator(&mut self) -> Result<Option<Token<'a>>> {
+    fn operator(&mut self) -> Option<Token<'a>> {
         let seg = self
             .query
             .split(' ')
             .next()
             .expect("Already checked that query isn't empty");
-        let token = if seg.eq_ignore_ascii_case("and") {
+        let token = if seg == "AND" {
             Token::And
-        } else if seg.eq_ignore_ascii_case("or") {
+        } else if seg == "OR" {
             Token::Or
         } else {
-            return Ok(None);
+            return None;
         };
 
         self.query = &self.query[seg.len()..];
 
-        Ok(Some(token))
+        Some(token)
     }
 }
