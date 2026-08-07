@@ -5,7 +5,7 @@ use tokio::net::TcpListener;
 use topcoat::{
     Result,
     asset::{AssetBundle, RouterBuilderAssetExt as _},
-    context::CxBuilder,
+    context::{Cx, CxBuilder},
     router::{
         Body, IntoResponse, Next, Response, Router, RouterBuilderDiscoverExt, StatusCode,
         error::{BadRequestError, NotFoundError, RedirectError, not_found, redirect},
@@ -104,7 +104,7 @@ async fn root_layer(cx: &mut CxBuilder, body: Body, next: Next<'_>) -> Result<Re
 }
 
 #[layout("/")]
-async fn root_layout(slot: Result) -> Result {
+async fn root_layout(cx: &Cx, slot: Result) -> Result {
     let content = match slot {
         // Pass redirects through.
         Err(error) if error.downcast_ref::<RedirectError>().is_some() => {
@@ -135,6 +135,28 @@ async fn root_layout(slot: Result) -> Result {
         content => content,
     }?;
 
+    let nav = view! {
+        <ul>
+            for (idx, (text, href)) in [("Search", "/search"), ("License", "/license")]
+                .into_iter()
+                .enumerate() {
+                if idx > 0 {
+                    "·"
+                }
+                <li>
+                    <a
+                        href=(href)
+                        if uri(cx).path().starts_with(href) {
+                            aria-current="page"
+                        }
+                    >
+                        (text)
+                    </a>
+                </li>
+            }
+        </ul>
+    }?;
+
     view! {
         <!DOCTYPE html>
         <html lang="en">
@@ -148,9 +170,13 @@ async fn root_layout(slot: Result) -> Result {
 
                 styles::styles()
             </head>
+
             <body>
                 <header><h1>"Maknuuner"</h1></header>
-                (content)
+
+                <nav>(nav)</nav>
+
+                <main>(content)</main>
             </body>
         </html>
     }
@@ -159,6 +185,19 @@ async fn root_layout(slot: Result) -> Result {
 #[page("/")]
 async fn home() -> Result {
     Err(redirect("/search").into())
+}
+
+#[page("/license")]
+async fn license() -> Result {
+    view! {
+        "The "
+        <a href="http://www.palestine-lexicon.org/">"Maknuune"</a>
+        " open lexicon of Palestinian Arabic was published by the CAMeL Lab at NYU Abu Dhabi under a "
+        <a href="https://creativecommons.org/licenses/by-sa/4.0/">
+            "Creative Commons Attribution-ShareAlike 4.0 International"
+        </a>
+        " license."
+    }
 }
 
 /// Return a page 404 on unmatched paths.

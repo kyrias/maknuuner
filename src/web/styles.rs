@@ -14,6 +14,12 @@ const AMIRI: Font = font! {
         font-display: block;
     }
     @font-face {
+        src: url(asset!("assets/Amiri-1.003/Amiri-Italic.ttf")) format("truetype");
+        font-style: italic;
+        font-weight: normal;
+        font-display: block;
+    }
+    @font-face {
         src: url(asset!("assets/Amiri-1.003/Amiri-Bold.ttf")) format("truetype");
         font-style: normal;
         font-weight: bold;
@@ -81,6 +87,37 @@ body {
     border: 1px solid #ccc;
     border-top: none;
     background-color: #fcfcfc;
+}
+
+nav ul {
+    display: inline flex;
+    gap: 0.5em;
+
+    li {
+        list-style-type: none;
+
+        a[aria-current=page] {
+            font-style: italic;
+        }
+    }
+}
+
+main {
+    margin-top: 0.5em;
+    padding-top: 1em;
+
+    border-top: 0.15em dotted #bbb;
+}
+
+a {
+    color: #838;
+
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.1em;
 }
 
 input {
