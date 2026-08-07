@@ -78,7 +78,8 @@ async fn root_layer(cx: &mut CxBuilder, body: Body, next: Next<'_>) -> Result<Re
     if status.is_informational() || status.is_success() {
         tracing::info!(
             parent: &span,
-            %duration,
+            uri = %uri(cx),
+            duration,
             status = status.as_u16(),
             "finished processing request",
         );
