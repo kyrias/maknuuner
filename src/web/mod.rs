@@ -86,7 +86,7 @@ async fn root_layer(cx: &mut CxBuilder, body: Body, next: Next<'_>) -> Result<Re
         tracing::warn!(
             parent: &span,
             uri = %uri(cx),
-            %duration,
+            duration,
             status = status.as_u16(),
             "finished processing request",
         );
@@ -94,7 +94,7 @@ async fn root_layer(cx: &mut CxBuilder, body: Body, next: Next<'_>) -> Result<Re
         tracing::error!(
             parent: &span,
             uri = %uri(cx),
-            %duration,
+            duration,
             status = status.as_u16(),
             "finished processing request",
         );

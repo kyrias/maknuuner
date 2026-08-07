@@ -109,9 +109,9 @@ async fn search_results(cx: &Cx, query: String, raw: bool) -> Result {
 
     let total_results = results.total_results();
     let returned_results = results.returned_results();
-    let latency = format!("{} ms", elapsed.as_millis());
+    let duration = format!("{} ms", elapsed.as_millis());
     tracing::info!(
-        latency,
+        duration,
         total_results,
         returned_results,
         "Finished searching lexicon"
