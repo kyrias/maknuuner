@@ -21,4 +21,7 @@ serde = { version = "1.0.229", default-features = false }
 smallvec = { version = "1.15.2", default-features = false, features = ["union"] }
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"], default-features = false }
 topcoat = { version = "0.5.0", default-features = false, features = ["asset", "discover", "font", "runtime", "serve", "view"] }
+tracing = { version = "0.1.44", default-features = false, features = ["attributes"] }
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["std", "fmt", "ansi"] }
 unicode-normalization = { version = "0.1.25", default-features = false }
+uuid = { version = "1.24.0", default-features = false, features = ["v7"] }

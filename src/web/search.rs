@@ -1,13 +1,13 @@
 use std::time::Instant;
 
-use anyhow::Context;
 use topcoat::{
     Result,
     context::{Cx, app_context},
-    router::{page, query_params},
+    router::{error::bad_request, page, query_params},
     runtime::{Event, shard},
     view::{Unescaped, View, component, view},
 };
+use tracing::instrument;
 
 use crate::{
     lexicon::{Definition, Lemma, Lexicon, Phrase, Transcription, pos::PartOfSpeech},
@@ -22,8 +22,9 @@ struct SearchQuery {
     raw: Option<bool>,
 }
 
+#[instrument(skip_all)]
 #[page("/search")]
-pub(super) async fn search(cx: &Cx) -> Result {
+async fn search(cx: &Cx) -> Result {
     let params = query_params::<SearchQuery>(cx)?;
 
     let query = params.query.clone().unwrap_or_default();
@@ -65,9 +66,16 @@ pub(super) async fn search(cx: &Cx) -> Result {
     }
 }
 
+#[instrument(skip_all, fields(query = query, raw = raw))]
 #[shard]
 async fn search_results(cx: &Cx, query: String, raw: bool) -> Result {
-    let query = Query::parse(&query).context("Failed to parse query")?;
+    let query = match Query::parse(&query) {
+        Ok(query) => query,
+        Err(error) => {
+            tracing::error!(?error, "failed to parse query");
+            return Err(bad_request("Could not parse query").into());
+        }
+    };
 
     let lexicon: &Lexicon = app_context(cx);
 
@@ -77,6 +85,13 @@ async fn search_results(cx: &Cx, query: String, raw: bool) -> Result {
 
     let total_results = results.total_results();
     let returned_results = results.returned_results();
+    let latency = format!("{} ms", elapsed.as_millis());
+    tracing::info!(
+        latency,
+        total_results,
+        returned_results,
+        "Finished searching lexicon"
+    );
 
     view! {
         <div class="results">
@@ -85,7 +100,11 @@ async fn search_results(cx: &Cx, query: String, raw: bool) -> Result {
             }
         </div>
         <div class="result-count">
-            "Displaying " (returned_results) " out of "(total_results) " results."
+            "Displaying "
+            (returned_results)
+            " out of "
+            (total_results)
+            " results."
         </div>
         if raw {
             <div class="raw">

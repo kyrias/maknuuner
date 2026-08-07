@@ -2,8 +2,7 @@ use std::{borrow::Cow, sync::Mutex};
 
 use topcoat::{
     Result,
-    context::{Cx, CxBuilder, request_context},
-    router::{Body, Next, Response, layer},
+    context::{Cx, request_context},
     view::{NodeViewParts, component, view},
 };
 
@@ -23,13 +22,6 @@ impl NodeViewParts for Title {
             .unwrap()
             .get_or_insert(self);
     }
-}
-
-#[layer("/")]
-async fn title_layer(cx: &mut CxBuilder, body: Body, next: Next<'_>) -> Result<Response> {
-    cx.insert(Mutex::<Option<Title>>::default());
-    let response = next.run(cx, body).await?;
-    Ok(response)
 }
 
 #[component]

@@ -9,11 +9,12 @@ mod web;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt::init();
+
     let asset_bundle = AssetBundle::load().context("Failed to load asset bundle")?;
 
-    println!("Creating lexicon");
+    tracing::info!("Initializing lexicon");
     let lexicon = lexicon::Lexicon::new(&asset_bundle).context("Failed to parse lexicon")?;
-    println!("Lexicon created");
 
     web::start(asset_bundle, lexicon)
         .await
