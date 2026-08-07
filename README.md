@@ -18,10 +18,10 @@ By default the server listens on `127.0.0.1:3000` but that can be overridden usi
 ## Cargo xtasks
 
 <dl>
-    <dt>`cargo xtask assets`</dt>
+    <dt><code>cargo xtask assets</code></dt>
     <dd>Downloads and unpacks the required assets.  (Maknuune dataset and the Amiri font.)</dd>
-    <dt>`cargo xtask build`</dt>
+    <dt><code>cargo xtask build</code></dt>
     <dd>Convenience xtask for preparing the assets and building the server.</dd>
-    <dt>`cargo xtask dist`</dt>
-    <dd>Prepares the assets, builds the server, and copies the required files to run the server to the `dist/` directory.</dd>
+    <dt><code>cargo xtask dist</code></dt>
+    <dd>Prepares the assets, builds the server, and copies the required files to run the server to the <code>dist/</code> directory.</dd>
 </dl>
