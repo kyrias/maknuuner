@@ -54,6 +54,7 @@ async fn search(cx: &Cx) -> Result {
             <input
                 type="search"
                 name="query"
+                autocomplete="off"
                 class="search"
                 title="Search"
                 placeholder="Search"
@@ -79,6 +80,8 @@ async fn search(cx: &Cx) -> Result {
                     );
                 })
             >
+
+
             if raw {
                 <input type="hidden" name="raw" value="true">
             }
