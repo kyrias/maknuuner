@@ -90,6 +90,10 @@ input {
 
 ol {
     padding-inline-start: 1lh;
+
+    > li {
+        padding-left: 0.25em;
+    }
 }
 "
         </style>
@@ -116,7 +120,7 @@ input.search {
 
 .result {
     &:not(:first-child) {
-        margin-top: 1em;
+        margin-top: 2em;
     }
 
     h3 {
@@ -144,32 +148,45 @@ input.search {
         };
     }
 
-    h4 {
-        margin-top: 0.5em;
-    }
-
-    .form-header {
-        & [lang|=ar] {
-            font-size: 1.5em;
+    .lemma-section {
+        &:first-child {
+            margin-top: 0.75em;
         }
 
-        & > :not(:first-child) {
-            margin-left: 0.75em;
+        &:not(:first-child) {
+            margin-top: 1em;
         }
     }
 
-    .transcription, .msa-glosses {
-        & .list {
+    .definition,
+    .phrase {
+        &:not(:first-child) {
+            margin-top: 1em;
         }
 
-        & > :first-child {
-            margin-right: 0.1em;
-        }
-        & > :last-child {
-            margin-left: 0.1em;
+        .form-header {
+            & [lang|=ar] {
+                font-size: 1.5em;
+            }
+
+            & > :not(:first-child) {
+                margin-left: 0.75em;
+            }
         }
 
-        color: oklch(0.45 0 0);
+        .transcription, .msa-glosses {
+            & .list {
+            }
+
+            & > :first-child {
+                margin-right: 0.1em;
+            }
+            & > :last-child {
+                margin-left: 0.1em;
+            }
+
+            color: oklch(0.45 0 0);
+        }
     }
 
     .examples {
@@ -177,6 +194,7 @@ input.search {
 
         color: oklch(0.45 0 0);
         font-size: 1.4em;
+        text-align-justify
 
         .example-header {
             font-weight: bold;

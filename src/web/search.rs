@@ -126,7 +126,7 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
 
             <div class="inner">
                 if !lemma.definitions.is_empty() {
-                    <div class="definitions">
+                    <div class="definitions lemma-section">
                         <h4>"Definitions"</h4>
                         <ol>
                             for (idx, entry) in lemma.definitions.iter().enumerate() {
@@ -145,7 +145,7 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
                 }
 
                 if !lemma.phrases.is_empty() {
-                    <div class="phrases">
+                    <div class="phrases lemma-section">
                         <h4>"Phrases"</h4>
                         <ol>
                             for phrase in &lemma.phrases {
@@ -157,7 +157,7 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
 
                 let examples = lemma.example_usages().collect::<Vec<_>>();
                 if !examples.is_empty() {
-                    <div class="examples" lang="ar-PS" dir="rtl">
+                    <div class="examples lemma-section" lang="ar-PS" dir="rtl">
                         <span class="example-header" title="Examples">
                             <span>"أمثلة"</span>
                             ": "
