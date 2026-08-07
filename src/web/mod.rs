@@ -8,7 +8,7 @@ use topcoat::{
     context::{Cx, CxBuilder},
     router::{
         Body, IntoResponse, Next, Response, Router, RouterBuilderDiscoverExt, StatusCode,
-        error::{BadRequestError, NotFoundError, RedirectError, not_found, redirect},
+        error::{BadRequestError, NotFoundError, RedirectError, not_found},
         layer, layout, page, uri,
     },
     view::view,
@@ -172,7 +172,7 @@ async fn root_layout(cx: &Cx, slot: Result) -> Result {
             </head>
 
             <body>
-                <header><h1>"Maknuuner"</h1></header>
+                <header><h1><a href="/">"Maknuuner"</a></h1></header>
 
                 <nav>(nav)</nav>
 
@@ -184,7 +184,13 @@ async fn root_layout(cx: &Cx, slot: Result) -> Result {
 
 #[page("/")]
 async fn home() -> Result {
-    Err(redirect("/search").into())
+    view! {
+        <p>
+            "Welcome to Maknuuner, a simple to use UI for searching through "
+            <a href="http://www.palestine-lexicon.org/">"Maknuune"</a>
+            ", the open lexicon of the Palestinian Arabic dialect published by the CAMeL LAB."
+        </p>
+    }
 }
 
 #[page("/license")]
