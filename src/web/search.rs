@@ -27,14 +27,29 @@ struct SearchQuery {
 async fn search(cx: &Cx) -> Result {
     let params = query_params::<SearchQuery>(cx)?;
 
-    let query = params.query.clone().unwrap_or_default();
+    let query_string = params.query.clone().unwrap_or_default();
     let raw = params.raw.unwrap_or(false);
 
     view! {
-        signal query = query;
+        signal query = query_string.clone();
+        signal debounced = query_string;
 
         (Title::new("Search"))
 
+        <script>
+            (Unescaped::new_unchecked(
+                r#"
+                function debounce(func) {
+                  let timer;
+                  return (value) => {
+                    clearTimeout(timer);
+                    timer = setTimeout(() => { func(value); }, 150);
+                  };
+                }
+                let debouncedSet;
+            "#,
+            ))
+        </script>
         <form action="" method="get" rel="search" onsubmit="return false;">
             <input
                 type="search"
@@ -48,6 +63,13 @@ async fn search(cx: &Cx) -> Result {
                     query.set(value);
                     raw!(
                         r#"
+                            if (!debouncedSet) {
+                                debouncedSet = debounce(
+                                    (value) => { ${debounced}.set(value) },
+                                );
+                            }
+                            debouncedSet(${value});
+
                             let params = { query: ${value} };
                             if (${raw}.v) {
                                 params.raw = "true";
@@ -62,7 +84,7 @@ async fn search(cx: &Cx) -> Result {
             }
         </form>
 
-        search_results(query: $(query.get()), raw: $(raw))
+        search_results(query: $(debounced.get()), raw: $(raw))
     }
 }
 
