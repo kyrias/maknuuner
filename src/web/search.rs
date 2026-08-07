@@ -81,7 +81,6 @@ async fn search(cx: &Cx) -> Result {
                 })
             >
 
-
             if raw {
                 <input type="hidden" name="raw" value="true">
             }

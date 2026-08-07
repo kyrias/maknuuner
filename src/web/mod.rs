@@ -104,7 +104,7 @@ async fn root_layer(cx: &mut CxBuilder, body: Body, next: Next<'_>) -> Result<Re
 }
 
 #[layout("/")]
-async fn root_layout(cx: &Cx, slot: Result) -> Result {
+async fn root_layout(slot: Result) -> Result {
     let content = match slot {
         // Pass redirects through.
         Err(error) if error.downcast_ref::<RedirectError>().is_some() => {
@@ -112,7 +112,6 @@ async fn root_layout(cx: &Cx, slot: Result) -> Result {
         }
 
         Err(error) if error.downcast_ref::<NotFoundError>().is_some() => {
-            tracing::warn!(uri = %uri(cx), "path not found");
             view! {
                 (StatusCode::NOT_FOUND)
                 <h2>"Page not found"</h2>
