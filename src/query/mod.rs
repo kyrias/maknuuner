@@ -12,11 +12,13 @@ pub(crate) use matching::Matches;
 mod lexer;
 mod matching;
 
+#[derive(PartialEq)]
 pub(crate) struct TermString {
     pub(crate) non_folded: NonFoldedNfkcNormalizedString,
     pub(crate) case_folded: CaseFoldedNfkcNormalizedString,
 }
 
+#[derive(PartialEq)]
 pub(crate) struct Term {
     pub(crate) term: TermString,
     anchor_start: bool,
@@ -58,7 +60,7 @@ impl Debug for Term {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum Qualifier {
     Analysis,
     Gloss,
@@ -88,12 +90,13 @@ impl Display for Qualifier {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum Operator {
     And,
     Or,
 }
 
+#[derive(PartialEq)]
 pub(crate) enum Leaf {
     Term { term: Term },
     Qualified { qualifier: Qualifier, term: Term },
@@ -111,7 +114,7 @@ impl Debug for Leaf {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum Query {
     Leaf(Leaf),
     Operator {
@@ -123,8 +126,12 @@ pub(crate) enum Query {
 
 impl Query {
     pub(crate) fn parse(query_string: &str) -> Result<Query> {
-        if query_string.trim().is_empty() {
-            return Ok(Query::Leaf(Leaf::Term {
+        let mut lexer = Lexer::new(query_string);
+
+        if let Some(query) = parse_bp(&mut lexer, 0)? {
+            Ok(query)
+        } else {
+            Ok(Query::Leaf(Leaf::Term {
                 term: Term {
                     term: TermString {
                         non_folded: NonFoldedNfkcNormalizedString::interned("".chars()),
@@ -133,16 +140,12 @@ impl Query {
                     anchor_start: false,
                     anchor_end: false,
                 },
-            }));
+            }))
         }
-
-        let mut lexer = Lexer::new(query_string);
-
-        parse_bp(&mut lexer, 0)
     }
 }
 
-fn parse_bp(lexer: &mut Lexer<'_>, min_bp: u8) -> Result<Query> {
+fn parse_bp(lexer: &mut Lexer<'_>, min_bp: u8) -> Result<Option<Query>> {
     let mut lhs = match lexer.next()? {
         Token::String(mut term) => {
             if term.contains('\\') {
@@ -188,17 +191,23 @@ fn parse_bp(lexer: &mut Lexer<'_>, min_bp: u8) -> Result<Query> {
         }
 
         Token::LeftParen => {
-            let lhs = parse_bp(lexer, 0)?;
+            let Some(lhs) = parse_bp(lexer, 0)? else {
+                return Ok(None);
+            };
             ensure!(lexer.next()? == Token::RightParen);
             lhs
         }
 
-        token => bail!("Expected String, Qualifier, or UnquotedTerm, found {token:?}"),
+        Token::Eof => {
+            return Ok(None);
+        }
+
+        token => bail!("Expected String, Qualifier, UnquotedTerm, or Eof, found {token:?}"),
     };
 
     loop {
-        let (op, skip) = match lexer.peek()? {
-            Token::Eof => return Ok(lhs),
+        let (op, found_op) = match lexer.peek()? {
+            Token::Eof => return Ok(Some(lhs)),
 
             Token::And => (Operator::And, true),
             Token::Or => (Operator::Or, true),
@@ -208,22 +217,85 @@ fn parse_bp(lexer: &mut Lexer<'_>, min_bp: u8) -> Result<Query> {
             Token::UnquotedTerm(_) => (Operator::And, false),
 
             Token::LeftParen => unreachable!("Left parens are handled at the start of parse_bp"),
-            Token::RightParen => return Ok(lhs),
+            Token::RightParen => return Ok(Some(lhs)),
         };
 
         if 1 < min_bp {
-            return Ok(lhs);
+            return Ok(Some(lhs));
         }
 
-        if skip {
+        if found_op {
             lexer.next()?;
         }
 
-        let rhs = parse_bp(lexer, 2)?;
-        lhs = Query::Operator {
-            op,
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-        };
+        if let Some(rhs) = parse_bp(lexer, 2)? {
+            lhs = Query::Operator {
+                op,
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            };
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::query::{Leaf, Operator, Query};
+
+    #[test]
+    fn ops_are_uppercase() {
+        assert_eq!(
+            Query::parse("foo and bar").unwrap(),
+            Query::Operator {
+                op: Operator::And,
+                lhs: Box::new(Query::Operator {
+                    op: Operator::And,
+                    lhs: Box::new(Query::Leaf(Leaf::Term { term: "foo".into() })),
+                    rhs: Box::new(Query::Leaf(Leaf::Term { term: "and".into() })),
+                }),
+                rhs: Box::new(Query::Leaf(Leaf::Term { term: "bar".into() })),
+            }
+        );
+        assert_eq!(
+            Query::parse("foo AND bar").unwrap(),
+            Query::Operator {
+                op: Operator::And,
+                lhs: Box::new(Query::Leaf(Leaf::Term { term: "foo".into() })),
+                rhs: Box::new(Query::Leaf(Leaf::Term { term: "bar".into() })),
+            }
+        );
+
+        assert_eq!(
+            Query::parse("foo or bar").unwrap(),
+            Query::Operator {
+                op: Operator::And,
+                lhs: Box::new(Query::Operator {
+                    op: Operator::And,
+                    lhs: Box::new(Query::Leaf(Leaf::Term { term: "foo".into() })),
+                    rhs: Box::new(Query::Leaf(Leaf::Term { term: "or".into() })),
+                }),
+                rhs: Box::new(Query::Leaf(Leaf::Term { term: "bar".into() })),
+            }
+        );
+        assert_eq!(
+            Query::parse("foo OR bar").unwrap(),
+            Query::Operator {
+                op: Operator::Or,
+                lhs: Box::new(Query::Leaf(Leaf::Term { term: "foo".into() })),
+                rhs: Box::new(Query::Leaf(Leaf::Term { term: "bar".into() })),
+            }
+        );
+    }
+
+    #[test]
+    fn final_op_is_ignored() {
+        assert_eq!(
+            Query::parse("foo AND").unwrap(),
+            Query::Leaf(Leaf::Term { term: "foo".into() }),
+        );
+        assert_eq!(
+            Query::parse("foo OR").unwrap(),
+            Query::Leaf(Leaf::Term { term: "foo".into() }),
+        );
     }
 }
