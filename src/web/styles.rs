@@ -165,19 +165,21 @@ input.search {
 
         .root {
             font-size: 0.6em;
-            vertical-align: center;
+
+            color: oklch(0.45 0 0);
         }
         .lemma {
             margin-left: 0.5em;
         }
+        .link {
+            margin-left: 0.75em;
+            font-size: 0.8em;
+
+            color: oklch(0.5 0 0 / 70%);
+        }
 
         a {
-            margin-left: 0.75em;
-
-            font-size: 0.8em;
-            color: oklch(0.5 0 0 / 70%);
             transition: color 0.2s;
-
             text-decoration: none;
         }
         &:hover a {

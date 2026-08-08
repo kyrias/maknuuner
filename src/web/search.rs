@@ -153,22 +153,20 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
         .or_else(|| lemma.phrases.first().map(|ph| &ph.glosses_english))
         .unwrap();
 
+    let root =
+        Itertools::intersperse(lemma.root.displayable.as_str().chars(), '·').collect::<String>();
+
     view! {
         <div id=(("lemma-", lemma.lowest_id)) class="result">
             <h3 lang="ar-PS">
-                <span class="root" title="Root">
+                <a href=(("/search?query=root:", &root)) class="root" title="Root">
                     "("
-                    for c in Itertools::intersperse(
-                        lemma.root.displayable.as_str().chars(),
-                        '·',
-                    ) {
-                        (c)
-                    }
+                    (root)
                     ")"
-                </span>
+                </a>
                 <span class="lemma" title="Lemma">(&lemma.lemma)</span>
 
-                <a href=(("#lemma-", lemma.lowest_id))>
+                <a href=(("#lemma-", lemma.lowest_id)) class="link">
                     (Unescaped::new_unchecked("&sect;"))
                 </a>
             </h3>
