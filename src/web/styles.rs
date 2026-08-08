@@ -161,7 +161,10 @@ input.search {
     }
 
     h3 {
+        display: flex;
         font-size: 2em;
+        align-items: baseline;
+        gap: 0.5em;
 
         .root {
             font-size: 0.6em;
@@ -169,11 +172,10 @@ input.search {
             color: oklch(0.45 0 0);
         }
         .lemma {
-            margin-left: 0.5em;
         }
         .link {
-            margin-left: 0.75em;
             font-size: 0.8em;
+            margin-left: auto;
 
             color: oklch(0.5 0 0 / 70%);
         }
