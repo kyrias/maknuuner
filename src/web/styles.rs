@@ -149,7 +149,7 @@ input.search {
 .results {
     margin-top: 1em;
 
-    & .inner {
+    .inner {
         padding-left: 0.75em;
         padding-right: 0.75em;
     }
@@ -163,15 +163,15 @@ input.search {
     h3 {
         font-size: 2em;
 
-        & .root {
+        .root {
             font-size: 0.6em;
             vertical-align: center;
         }
-        & .lemma {
+        .lemma {
             margin-left: 0.5em;
         }
 
-        & a {
+        a {
             margin-left: 0.75em;
 
             font-size: 0.8em;
@@ -202,11 +202,11 @@ input.search {
         }
 
         .form-header {
-            & [lang|=ar] {
+            [lang|=ar] {
                 font-size: 1.5em;
             }
 
-            & > :not(:first-child) {
+            > :not(:first-child) {
                 margin-left: 0.75em;
             }
         }
@@ -227,16 +227,14 @@ input.search {
     }
 
     .examples {
-        margin-top: 0.5em;
-
         color: oklch(0.45 0 0);
         font-size: 1.4em;
-        text-align-justify
+        text-align-justify;
 
         .example-header {
             font-weight: bold;
 
-            & span {
+            span {
                 text-decoration: underline;
                 text-decoration-thickness: 0.08em;
                 text-underline-offset: 0.1em;
