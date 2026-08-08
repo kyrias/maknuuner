@@ -93,11 +93,10 @@ impl TryFrom<DatasetEntry> for Lemma {
             let root = entry.root.take().unwrap();
             let root_ntws = entry.root_ntws.take().unwrap_or_default();
 
-            let middledots = |c| if c == '.' { '·' } else { c };
             if root == "NTWS" {
-                SearchableString::case_folded(root_ntws.chars().map(middledots))
+                SearchableString::case_folded(root_ntws.chars().filter(|c| *c != '.'))
             } else {
-                SearchableString::case_folded(root.chars().map(middledots))
+                SearchableString::case_folded(root.chars().filter(|c| *c != '.'))
             }
         };
 

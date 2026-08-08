@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use itertools::Itertools;
 use topcoat::{
     Result,
     context::{Cx, app_context},
@@ -157,7 +158,12 @@ async fn result(lemma: &Lemma, rank: f64, raw: bool) -> Result {
             <h3 lang="ar-PS">
                 <span class="root" title="Root">
                     "("
-                    (&lemma.root)
+                    for c in Itertools::intersperse(
+                        lemma.root.displayable.as_str().chars(),
+                        '·',
+                    ) {
+                        (c)
+                    }
                     ")"
                 </span>
                 <span class="lemma" title="Lemma">(&lemma.lemma)</span>

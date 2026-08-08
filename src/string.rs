@@ -157,7 +157,7 @@ impl NonFoldedNfkcNormalizedString {
         string
             .into_iter()
             .nfkc()
-            .filter(|c| !arabic_vowel_marker(*c))
+            .filter(|c| !arabic_vowel_marker(*c) && *c != '·')
             .collect::<CompactString>()
     }
 
@@ -201,7 +201,7 @@ impl CaseFoldedNfkcNormalizedString {
             .into_iter()
             .default_case_fold()
             .nfkc()
-            .filter(|c| !arabic_vowel_marker(*c))
+            .filter(|c| !arabic_vowel_marker(*c) && *c != '·')
             .collect::<CompactString>()
     }
 

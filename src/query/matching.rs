@@ -54,6 +54,7 @@ impl Matches<Lemma> for Leaf {
                         || term.matches(&value.lemma_search)
                         || term.matches(&value.lemma_bw)
                 }
+                Qualifier::Root => term.term.non_folded.as_str() == value.root.searchable.as_str(),
                 Qualifier::Analysis | Qualifier::Gloss => false,
             },
         }
@@ -82,6 +83,7 @@ impl Matches<Definition> for Leaf {
                     .glosses_english
                     .iter()
                     .any(|gloss| term.matches(gloss)),
+                Qualifier::Root => false,
             },
         }
     }
@@ -109,6 +111,7 @@ impl Matches<Phrase> for Leaf {
                     .glosses_english
                     .iter()
                     .any(|gloss| term.matches(gloss)),
+                Qualifier::Root => false,
             },
         }
     }

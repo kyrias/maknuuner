@@ -65,6 +65,7 @@ pub(crate) enum Qualifier {
     Analysis,
     Gloss,
     Lemma,
+    Root,
 }
 
 impl TryFrom<&str> for Qualifier {
@@ -75,7 +76,8 @@ impl TryFrom<&str> for Qualifier {
             "analysis" => Ok(Self::Analysis),
             "gloss" => Ok(Self::Gloss),
             "lemma" => Ok(Self::Lemma),
-            other => bail!("Unknown qualifier {other:?}, expected analysis, lemma, or gloss"),
+            "root" => Ok(Self::Root),
+            other => bail!("Unknown qualifier {other:?}, expected analysis, lemma, gloss, or root"),
         }
     }
 }
@@ -86,6 +88,7 @@ impl Display for Qualifier {
             Qualifier::Analysis => f.write_str("analysis"),
             Qualifier::Gloss => f.write_str("gloss"),
             Qualifier::Lemma => f.write_str("lemma"),
+            Qualifier::Root => f.write_str("root"),
         }
     }
 }
